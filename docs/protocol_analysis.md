@@ -38,7 +38,7 @@ Searched required protocol and sensor keywords including `0xAA`, `0xBB`, `0xCC`,
 | Nominal output cadence | 4-phase 400 Hz state machine produces one fused frame per phase-4 cycle, intended 100 Hz | `Core/Src/main.c:831-835`, `Core/Src/main.c:883-887` |
 | Active TX path | Main loop packs one 49-byte frame and sends it by UART DMA when pending | `Core/Src/main.c:1035-1040` |
 | Control frame | 13 bytes, header `0xAB 0xCD`, tail `0xEF 0xFA`, no checksum field found | `Core/Src/main.c:64-78`, `Core/Src/main.c:451-504`, `README.md:216-230` |
-| Control ACK | No ACK/NACK response for sensor parameter frame found | `Core/Src/main.c:517-530`, `Core/Src/main.c:1164-1195`; only internal `g_sensor_cfg_apply_error` |
+| Control ACK | Confirmed no ACK/NACK response for sensor parameter frame | User confirmation 2026-05-10; `Core/Src/main.c:517-530`, `Core/Src/main.c:1164-1195`; only internal `g_sensor_cfg_apply_error` |
 | Protocol version | Not found | `rg protocol_version/PROTOCOL_VERSION/version` found no frame version definition |
 
 ## 4. Data Frame Layout
@@ -56,14 +56,14 @@ Payload fields:
 
 | Offset | Field | Bytes | Type | Signed | Endian | Scale / decode | Source |
 |---:|---|---:|---|---|---|---|---|
-| 2 | adc_ch1_early_code | 3 | int24 stored from `int32_t` low 24 bits | signed raw code | little | AD4007 averaged raw code; voltage formula not confirmed | `Core/Src/ble_comm.c:81-89`, `Core/Src/main.c:607-630` |
-| 5 | adc_ch1_late_code | 3 | int24 stored from `int32_t` low 24 bits | signed raw code | little | AD4007 averaged raw code; voltage formula not confirmed | same as above |
-| 8 | adc_ch2_early_code | 3 | int24 stored from `int32_t` low 24 bits | signed raw code | little | AD4007 averaged raw code; voltage formula not confirmed | same as above |
-| 11 | adc_ch2_late_code | 3 | int24 stored from `int32_t` low 24 bits | signed raw code | little | AD4007 averaged raw code; voltage formula not confirmed | same as above |
-| 14 | adc_ch3_early_code | 3 | int24 stored from `int32_t` low 24 bits | signed raw code | little | AD4007 averaged raw code; voltage formula not confirmed | same as above |
-| 17 | adc_ch3_late_code | 3 | int24 stored from `int32_t` low 24 bits | signed raw code | little | AD4007 averaged raw code; voltage formula not confirmed | same as above |
-| 20 | adc_ch4_early_code | 3 | int24 stored from `int32_t` low 24 bits | signed raw code | little | AD4007 averaged raw code; voltage formula not confirmed | same as above |
-| 23 | adc_ch4_late_code | 3 | int24 stored from `int32_t` low 24 bits | signed raw code | little | AD4007 averaged raw code; voltage formula not confirmed | same as above |
+| 2 | Uc1 / adc_ch1_early_code | 3 | int24 stored from `int32_t` low 24 bits | signed raw code | little | `volts = signed_int24 * (4.096 / 131072.0)` | `Core/Src/ble_comm.c:81-89`, `Core/Src/main.c:607-630`; user confirmation 2026-05-10 |
+| 5 | Uh1 / adc_ch1_late_code | 3 | int24 stored from `int32_t` low 24 bits | signed raw code | little | same as above | same as above |
+| 8 | Uc2 / adc_ch2_early_code | 3 | int24 stored from `int32_t` low 24 bits | signed raw code | little | same as above | same as above |
+| 11 | Uh2 / adc_ch2_late_code | 3 | int24 stored from `int32_t` low 24 bits | signed raw code | little | same as above | same as above |
+| 14 | Uc3 / adc_ch3_early_code | 3 | int24 stored from `int32_t` low 24 bits | signed raw code | little | same as above | same as above |
+| 17 | Uh3 / adc_ch3_late_code | 3 | int24 stored from `int32_t` low 24 bits | signed raw code | little | same as above | same as above |
+| 20 | Uc4 / adc_ch4_early_code | 3 | int24 stored from `int32_t` low 24 bits | signed raw code | little | same as above | same as above |
+| 23 | Uh4 / adc_ch4_late_code | 3 | int24 stored from `int32_t` low 24 bits | signed raw code | little | same as above | same as above |
 | 26 | PPG_G | 3 | uint24 | unsigned | little | Firmware-aligned MAX30101 raw count | `Core/Src/ble_comm.c:92-101`, `Core/Src/MAX30101.c:577-596` |
 | 29 | PPG_R | 3 | uint24 | unsigned | little | Firmware-aligned MAX30101 raw count | same as above |
 | 32 | PPG_IR | 3 | uint24 | unsigned | little | Firmware-aligned MAX30101 raw count | same as above |
@@ -86,6 +86,16 @@ Confirmed:
 - Each transmitted ADC value is written as the low 24 bits of an `int32_t` in little-endian order.
 - AD4007 raw acquisition decodes 24-bit SPI data by right-shifting 6 bits, masking 18 bits, sign-extending bit 17, and averaging samples.
 - Firmware defines `AD4007_VREF = 4.096f`.
+- User confirmation on 2026-05-10 maps `adc_data[ch].early_code` to `Uc` and `adc_data[ch].late_code` to `Uh`.
+- The 4 transmitted ADC channels map in frame order to experiment channels `1..4`.
+- PC-side AD4007 conversion uses no external offset and the 17-bit full-scale denominator:
+
+```text
+temp32 = data[0] + data[1] * 256 + data[2] * 65536
+if temp32 >= 8388608:
+    temp32 -= 16777216
+volts = temp32 * (4.096 / 131072.0)
+```
 
 Sources:
 
@@ -94,14 +104,9 @@ Sources:
 - `Core/Src/AD4007.c:74-91`
 - `Core/Src/AD4007.c:340-362`
 - `Core/Src/main.c:564-630`
+- User confirmation 2026-05-10 for Uh/Uc mapping and PC-side voltage formula.
 
-Not confirmed:
-
-- Whether `early_code` and `late_code` correspond to `Uh` and `Uc`.
-- Whether `early_code` means high-level voltage and `late_code` means low-level voltage.
-- Which of the 4 ADC phase channels map to Uh1-Uh4 / Uc1-Uc4.
-- The exact PC-side voltage conversion formula from AD4007 raw code to volts for this analog front-end.
-- Whether external amplifier gain, bridge gain, offset, polarity, or calibration should be applied.
+No external gain, external offset, or calibration term has been specified for PC decoding. Metadata should record the formula above and leave calibration fields empty unless later provided.
 
 ## 6. PPG Decode
 
@@ -112,6 +117,7 @@ Confirmed:
 - Firmware reads FIFO entries as 3 bytes per active LED channel.
 - Firmware converts each FIFO channel as big-endian 3-byte raw, then right shifts by `s_ppg_right_shift` and masks by `s_ppg_valid_mask`.
 - The transmitted BLE frame contains the already aligned `ppg_data[0..2]` as 3-byte little-endian unsigned integers.
+- User confirmation on 2026-05-10: PPG should be recorded as firmware output raw counts only, with no PC-side physical scaling.
 
 LED pulse-width dependent valid bits:
 
@@ -211,24 +217,30 @@ The requested PC-side formula is:
 UD = (Uh - Uc) / (k - Uc)
 ```
 
-The firmware source checked in this analysis does not define `Uh`, `Uc`, `UD`, `UD1`, or `UD2`. It transmits four ADC channels with `early_code` and `late_code`, but does not state that these are Uh/Uc or which channels should produce UD1/UD2.
+Firmware source checked in this analysis does not define the PC-facing names `Uh`, `Uc`, `UD`, `UD1`, or `UD2`. It transmits four ADC channels with `early_code` and `late_code`.
 
-This blocks implementation of the real decoder fields `Uh1..Uh4`, `Uc1..Uc4`, `UD1`, and `UD2`.
+User confirmation on 2026-05-10 defines the mapping required for Python decoding:
 
-## 10. Open Blocking Questions
+- `early_code` is `Uc`.
+- `late_code` is `Uh`.
+- Frame ADC channel order maps directly to experiment channels `1..4`.
+- `UD1` uses channel 2: `UD1 = (Uh2 - Uc2) / (k - Uc2)`.
+- `UD2` uses channel 3: `UD2 = (Uh3 - Uc3) / (k - Uc3)`.
+- If `abs(k - Uc)` is near zero, the decoder must not crash; it should return `NaN` and record a warning.
 
-| ID | Question | Blocks parser / decoder / commands? | Suggested confirmation |
+## 10. Open Questions
+
+| ID | Question | Blocks parser / decoder / commands? | Handling |
 |---|---|---|---|
-| Q1 | Do ADC `early_code` and `late_code` map to `Uh` and `Uc`? If yes, which is which? | Yes, decoder | Firmware author or schematic/experiment notes |
-| Q2 | Which ADC phase channels map to `Uh1..Uh4` and `Uc1..Uc4`? | Yes, decoder | TMUX/electrode channel map |
-| Q3 | Which Uh/Uc channels are used by `UD1` and `UD2`? | Yes, decoder | Experiment protocol or algorithm note |
-| Q4 | What exact voltage conversion should PC use for AD4007 raw codes, including VREF, bipolar/full-scale convention, external gain, offset, and calibration? | Yes, decoder | Analog front-end schematic/calibration document |
-| Q5 | Should PPG values be shown only as firmware-aligned raw counts, or converted to any physical/scaled unit? | Yes, decoder scale metadata | Firmware/sensor calibration note |
-| Q6 | Is there a protocol version number outside the frame, or should metadata record `null`? | No for parser, yes for metadata precision | Firmware maintainer |
-| Q7 | Should the host expect any ACK/NACK for the 13-byte sensor parameter frame, or is silent apply/drop intended? | No for encoder, yes for UX | Firmware maintainer |
+| Q1 | Is there a protocol version number outside the frame, or should metadata record `null`? | No | Record `null` until firmware defines one. |
+| Q2 | Are there later calibration constants for AD4007 or PPG that should be applied in post-processing? | No for initial decoder | Record raw/voltage formula and leave calibration metadata empty unless later provided. |
+
+No blocking questions remain for implementing the real parser, decoder, or control command encoder described in this document.
 
 ## 11. Decision
 
-The raw data frame parser prerequisites are mostly confirmed: fixed length, header, tail, byte order, field offsets, and XOR checksum are present in firmware.
+The parser prerequisites are confirmed: fixed length, header, tail, byte order, field offsets, and XOR checksum are present in firmware.
 
-However, the project requirements explicitly require decoded `Uh`, `Uc`, voltage scaling, and `UD1/UD2`. Those cannot be confirmed from the checked firmware and sensorlist. Per `AGENTS.md`, implementation of the real parser / decoder / command encoder is paused until the blocking decode questions above are answered.
+The decoder prerequisites are now confirmed by firmware source plus the 2026-05-10 user confirmations for Uc/Uh mapping, AD4007 voltage conversion, PPG raw-count handling, and UD channel sources.
+
+The command encoder prerequisites are confirmed: 13-byte command frame, parameter ranges, no checksum, and no ACK/NACK response. Python implementation may proceed, while metadata should record `protocol_version = null` because no firmware protocol version field was found.
