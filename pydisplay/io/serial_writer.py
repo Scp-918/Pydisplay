@@ -1,4 +1,11 @@
-"""Serial command writer."""
+"""串口写入模块。
+
+SerialWriter 是一个很薄的保护层：
+1. 写入前确认串口已打开；
+2. 用锁保护多线程写；
+3. 捕获异常并返回 WriteResult；
+4. 控制命令必须先经过 protocol.commands 编码。
+"""
 
 from __future__ import annotations
 
@@ -35,7 +42,7 @@ class WriteResult:
 
 
 class SerialWriter:
-    """Thread-safe write wrapper around a serial-like object."""
+    """线程安全的串口写入包装器。"""
 
     def __init__(self, serial_obj: object | None) -> None:
         self.serial_obj = serial_obj
@@ -60,6 +67,7 @@ class SerialWriter:
             return WriteResult(False, 0, str(exc), _classify_write_exception(exc))
 
     def write_control(self, metadata: ControlMetadata) -> WriteResult:
+        # 这里强制经过 build_control_command，避免 GUI 层直接拼 bytes。
         command = build_control_command(metadata)
         return self.write(command.data)
 

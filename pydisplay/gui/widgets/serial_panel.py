@@ -1,4 +1,12 @@
-"""Serial connection panel."""
+"""串口连接面板。
+
+这个面板只负责用户输入和状态展示：
+- 刷新 COM 口；
+- 选择端口和波特率；
+- 发出打开、关闭、重连信号。
+
+它不直接持有 pyserial.Serial，也不读取串口数据。
+"""
 
 from __future__ import annotations
 
@@ -42,6 +50,7 @@ class SerialPanel(QGroupBox):
         layout.addLayout(buttons)
 
     def refresh_ports(self) -> None:
+        """刷新下拉框中的端口列表。"""
         self.refresh_ports_requested.emit()
         ports = list_serial_ports()
         self.port_combo.clear()
@@ -52,6 +61,7 @@ class SerialPanel(QGroupBox):
         self.status_label.setText(text)
 
     def _emit_open(self) -> None:
+        """把当前选择的端口和波特率通过 signal 发给主窗口。"""
         port = self.port_combo.currentData() or self.port_combo.currentText()
         if port:
             self.open_requested.emit(str(port), int(self.baud_combo.currentText()))

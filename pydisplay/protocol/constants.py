@@ -1,7 +1,20 @@
-"""Protocol constants confirmed in ``docs/protocol_analysis.md``."""
+"""固件协议常量。
+
+本文件中的常量都必须来自 `docs/protocol_analysis.md`，不能凭经验猜。
+上位机 parser、decoder、command encoder 都依赖这里：
+
+- 数据帧：`AA BB` 开头，固定 49 字节，`CC` 结尾；
+- payload：byte 2..46；
+- checksum：payload 全部字节 XOR；
+- 字段 offset：PPG、IMU、Uh/Uc 等在 49 字节帧中的位置；
+- 控制帧：`AB CD ... EF FA`，共 13 字节。
+
+如果以后固件协议变化，先更新协议分析文档，再同步改这个文件和测试。
+"""
 
 from __future__ import annotations
 
+# 数据帧固定结构：header + payload + checksum + tail。
 FRAME_HEADER = b"\xAA\xBB"
 FRAME_TAIL = b"\xCC"
 FRAME_LENGTH = 49
@@ -27,6 +40,8 @@ ACC_X_OFFSET = 41
 ACC_Y_OFFSET = 43
 ACC_Z_OFFSET = 45
 
+# ADC 通道映射由用户在 2026-05-10 确认：
+# early_code -> Uc，late_code -> Uh，帧中通道顺序对应实验通道 1..4。
 ADC_CHANNEL_OFFSETS = {
     1: {"uc": 2, "uh": 5},
     2: {"uc": 8, "uh": 11},
@@ -47,6 +62,7 @@ GYRO_MDPS_PER_LSB = {
     0x03: 70.0,
 }
 
+# 控制帧用于上位机向固件发送 PPG/LED/IMU 参数，没有 ACK/NACK。
 CONTROL_FRAME_HEADER = b"\xAB\xCD"
 CONTROL_FRAME_TAIL = b"\xEF\xFA"
 CONTROL_FRAME_LENGTH = 13

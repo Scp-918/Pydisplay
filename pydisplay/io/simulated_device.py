@@ -1,6 +1,8 @@
-"""Simulation-only helpers for no-hardware GUI development.
+"""无硬件调试用模拟数据。
 
-This module is simulation only. It does not replace firmware protocol analysis.
+重要：这里是 simulation only, not firmware protocol。
+它生成的是“看起来像 decoded sample 的数据”，用于测试 GUI 曲线和回放流程。
+不要把这里的数值格式当成固件通信协议。
 """
 
 from __future__ import annotations
@@ -12,7 +14,7 @@ from pydisplay.protocol.models import DecodedSample
 
 
 def generate_mock_decoded_sample(index: int, *, timestamp_ns: int | None = None) -> DecodedSample:
-    """Return a decoded-looking sample for UI testing only."""
+    """生成一条仅供 UI 调试使用的模拟 DecodedSample。"""
 
     ts = time.time_ns() if timestamp_ns is None else timestamp_ns
     t = index / 100.0

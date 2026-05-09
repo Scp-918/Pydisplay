@@ -1,4 +1,9 @@
-"""Fixed-size decoded sample ring buffer for real-time plotting."""
+"""实时绘图 ring buffer。
+
+绘图只需要最近 N 秒数据，不能把所有历史样本无限 append 到 list。
+SampleRingBuffer 使用 deque(maxlen=capacity)，超过容量会自动丢弃最旧样本。
+这只影响 GUI 显示，不影响 RecorderWorker 的全量记录。
+"""
 
 from __future__ import annotations
 
@@ -31,6 +36,7 @@ class SampleRingBuffer:
         return len(self._samples)
 
     def get_series(self, key: str, window_seconds: float | None = None) -> tuple[list[float], list[float]]:
+        """取出某条曲线的 x/y 数据，必要时只返回最近 window_seconds 秒。"""
         samples = list(self._samples)
         if not samples:
             return [], []

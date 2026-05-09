@@ -1,4 +1,19 @@
-"""Streaming parser for the confirmed 49-byte firmware data frame."""
+"""固件数据帧流式 parser。
+
+串口读出来的是连续 bytes，不能假设一次 read 正好是一帧。
+这个 parser 使用内部 buffer 处理：
+
+1. 帧头前噪声；
+2. 半包；
+3. 粘包；
+4. checksum 错误；
+5. 帧尾错误；
+6. 坏帧后的 resync；
+7. buffer 不能无限增长。
+
+输入：任意长度 bytes。
+输出：0 个或多个 `ParsedFrame`。
+"""
 
 from __future__ import annotations
 
@@ -17,7 +32,7 @@ from .models import ParsedFrame, ParserStats
 
 
 class FrameParser:
-    """Parse a continuous byte stream into valid firmware frames."""
+    """把连续 byte stream 解析成固件有效帧。"""
 
     def __init__(self, max_buffer_bytes: int = FRAME_LENGTH * 8) -> None:
         if max_buffer_bytes < FRAME_LENGTH:
@@ -27,6 +42,7 @@ class FrameParser:
         self.stats = ParserStats()
 
     def feed(self, data: bytes, timestamp_ns: int | None = None) -> list[ParsedFrame]:
+        """喂入一段串口 bytes，并返回当前能解析出的完整有效帧。"""
         if not data:
             self._update_buffer_stat()
             return []
@@ -37,18 +53,21 @@ class FrameParser:
         frames: list[ParsedFrame] = []
 
         while self._buffer:
+            # 每轮先把 buffer 对齐到帧头。若只有半个帧头 0xAA，会保留下来等下一次 feed。
             self._discard_noise_before_header()
             if len(self._buffer) < FRAME_LENGTH:
                 break
 
             candidate = bytes(self._buffer[:FRAME_LENGTH])
             if candidate[TAIL_OFFSET : TAIL_OFFSET + 1] != FRAME_TAIL:
+                # 帧尾错误说明当前位置大概率不是一帧，统计后向后滑动 1 字节重新找帧头。
                 self._mark_bad_frame("tail error", tail=True)
                 self._resync_after_bad_candidate()
                 continue
 
             expected = calculate_checksum(candidate[PAYLOAD_START_OFFSET : PAYLOAD_END_OFFSET + 1])
             if candidate[CHECKSUM_OFFSET] != expected:
+                # checksum 错误同样只丢弃当前起点，避免清空整段 buffer 导致后续好帧丢失。
                 self._mark_bad_frame("checksum error", checksum=True)
                 self._resync_after_bad_candidate()
                 continue
@@ -73,6 +92,7 @@ class FrameParser:
         return frames
 
     def _discard_noise_before_header(self) -> None:
+        """丢弃帧头前噪声，但保留可能的半帧头。"""
         index = self._buffer.find(FRAME_HEADER)
         if index > 0:
             del self._buffer[:index]
@@ -117,6 +137,7 @@ class FrameParser:
 
 
 def calculate_checksum(payload: bytes) -> int:
+    """固件确认的 checksum：payload 每个字节逐个 XOR。"""
     checksum = 0
     for byte in payload:
         checksum ^= byte

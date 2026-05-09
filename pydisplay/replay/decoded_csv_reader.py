@@ -1,4 +1,8 @@
-"""Read decoded.csv into DecodedSample objects."""
+"""decoded.csv 回放读取模块。
+
+decoded csv 回放不再经过 parser，直接恢复 DecodedSample。
+它适合无硬件时调试 GUI 绘图、健康监控和后续算法。
+"""
 
 from __future__ import annotations
 
@@ -15,6 +19,7 @@ class DecodedCsvFormatError(ValueError):
 
 
 def read_decoded_csv(path: str | Path) -> list[DecodedSample]:
+    """读取 decoded.csv，缺少必需字段时抛出中文 GUI 可捕获的格式错误。"""
     with Path(path).open("r", encoding="utf-8", newline="") as file:
         reader = csv.DictReader(file)
         missing = set(CSV_FIELDS) - set(reader.fieldnames or [])
@@ -25,6 +30,7 @@ def read_decoded_csv(path: str | Path) -> list[DecodedSample]:
 
 
 def _row_to_sample(row: dict[str, str]) -> DecodedSample:
+    """把 CSV 的一行字符串转换成 DecodedSample。"""
     try:
         return DecodedSample(
             relative_time_s=_float(row["relative_time_s"]),

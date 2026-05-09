@@ -1,4 +1,14 @@
-"""Threaded replay worker."""
+"""回放 worker。
+
+ReplayWorker 在后台线程中按时间戳节奏投递数据，避免 GUI 阻塞。
+它既可以回放 RawReplayItem，也可以回放 DecodedSample。
+
+支持：
+- 0.25x / 0.5x / 1x / 2x / 5x；
+- 暂停；
+- 继续；
+- 停止。
+"""
 
 from __future__ import annotations
 
@@ -29,7 +39,7 @@ class ReplayState(Enum):
 
 
 class ReplayWorker:
-    """Replay decoded samples or raw items without blocking the GUI thread."""
+    """后台回放 decoded sample 或 raw item。"""
 
     def __init__(
         self,
@@ -49,6 +59,7 @@ class ReplayWorker:
         self._stop_event = threading.Event()
 
     def start(self, *, speed: float = 1.0) -> None:
+        """启动回放线程。"""
         if speed not in SUPPORTED_SPEEDS:
             raise ValueError(f"unsupported replay speed: {speed}")
         if self._thread and self._thread.is_alive():
@@ -61,11 +72,13 @@ class ReplayWorker:
         self._thread.start()
 
     def pause(self) -> None:
+        """暂停回放；线程会停在循环中等待 resume。"""
         if self.state == ReplayState.PLAYING:
             self.state = ReplayState.PAUSED
             self._pause_event.set()
 
     def resume(self) -> None:
+        """继续回放。"""
         if self.state == ReplayState.PAUSED:
             self.state = ReplayState.PLAYING
             self._pause_event.clear()
@@ -118,6 +131,7 @@ def _timestamp_ns(item: Any) -> int:
 
 
 def _sleep_interruptible(delay_s: float, stop_event: threading.Event, pause_event: threading.Event) -> None:
+    """可被 stop/pause 打断的 sleep，避免长时间 sleep 导致停止不及时。"""
     deadline = time.monotonic() + delay_s
     while time.monotonic() < deadline and not stop_event.is_set():
         if pause_event.is_set():

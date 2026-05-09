@@ -1,4 +1,8 @@
-"""PyQtGraph plot manager."""
+"""PyQtGraph 曲线管理器。
+
+初始化时创建所有 PlotWidget 和 PlotDataItem。
+刷新时只调用已有曲线的 setData()，避免每帧创建新曲线导致卡顿。
+"""
 
 from __future__ import annotations
 
@@ -10,7 +14,7 @@ from .ring_buffer import SampleRingBuffer
 
 
 class PlotManager:
-    """Own PlotDataItem instances and update them via setData only."""
+    """持有所有曲线对象，并集中刷新。"""
 
     def __init__(self, layout, *, window_seconds: float = 10.0) -> None:
         import pyqtgraph as pg
@@ -42,6 +46,7 @@ class PlotManager:
             self.curves[key].setVisible(visible)
 
     def refresh(self, buffer: SampleRingBuffer) -> None:
+        """按当前可见性从 ring buffer 读取数据并刷新曲线。"""
         for key, item in self.curves.items():
             if not self.visible.get(key, True):
                 continue

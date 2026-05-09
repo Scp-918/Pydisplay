@@ -1,4 +1,10 @@
-"""Metadata generation for recording sessions."""
+"""metadata.json 生成模块。
+
+metadata 用来记录“这次实验是在什么条件下采集的”。
+后处理时不要只看 decoded.csv，还应一起保存 metadata.json。
+
+这里记录软件版本、固件信息、串口信息、k 值、协议字段布局和 CSV 字段说明。
+"""
 
 from __future__ import annotations
 
@@ -34,6 +40,11 @@ def build_metadata(
     k: float | None = None,
     control_parameters: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    """构造一份 metadata 字典。
+
+    GUI 或 RecorderWorker 可以传入实际串口、波特率、k 值等信息。
+    没有的字段保留为 None，避免编造。
+    """
     return {
         "software": {"name": "Pydisplay", "version": __version__},
         "firmware": {
@@ -92,6 +103,7 @@ def build_metadata(
 
 
 def write_metadata(path: str | Path, metadata: dict[str, Any]) -> None:
+    """把 metadata 以 UTF-8 JSON 写入磁盘。"""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")

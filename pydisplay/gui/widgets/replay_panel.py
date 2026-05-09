@@ -1,4 +1,8 @@
-"""Replay controls."""
+"""回放控制面板。
+
+用户选择 raw_frames.bin 或 decoded.csv，选择速度，然后发出开始/暂停/继续/停止信号。
+实际文件读取和节奏控制由 replay 模块完成。
+"""
 
 from __future__ import annotations
 
@@ -44,6 +48,7 @@ class ReplayPanel(QGroupBox):
         layout.addLayout(buttons)
 
     def _emit_start(self) -> None:
+        """根据当前回放类型选择对应路径，并发出开始回放信号。"""
         replay_type = self.type_combo.currentText()
         path = self.raw_path.text() if replay_type == "raw_frames.bin" else self.csv_path.text()
         self.start_replay_requested.emit(replay_type, path, self.speed_combo.currentData())

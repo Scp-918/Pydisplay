@@ -1,4 +1,16 @@
-"""Main PySide6 window."""
+"""GUI 主窗口。
+
+MainWindow 负责把各个面板组装起来，并连接用户操作与后台服务：
+- 串口面板 -> SerialManager；
+- 控制面板 -> SerialWriter / protocol.commands；
+- 记录面板 -> RecorderWorker；
+- 回放面板 -> ReplayWorker；
+- 串口或回放数据 -> DataPipeline -> PlotPanel；
+- HealthMonitor -> HealthPanel。
+
+重要原则：
+GUI 主线程只做界面显示和 signal/slot 调度，不直接阻塞读串口、不直接写文件。
+"""
 
 from __future__ import annotations
 
@@ -28,13 +40,14 @@ from pydisplay.version import __version__
 
 
 class MainWindow(QMainWindow):
-    """Main application window with panels and non-blocking worker wiring."""
+    """Pydisplay 主窗口。"""
 
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle(WINDOW_TITLE)
         self.resize(1360, 860)
 
+        # 后台服务对象。它们和 GUI 分开，便于测试和后续替换实现。
         self.health = HealthMonitor()
         self.recorder = RecorderWorker()
         self.pipeline = DataPipeline(
@@ -69,6 +82,7 @@ class MainWindow(QMainWindow):
         self.serial_panel.refresh_ports()
 
     def _build_layout(self) -> None:
+        """创建左侧控制区和右侧绘图区。"""
         left = QWidget()
         left_layout = QVBoxLayout(left)
         left_layout.addWidget(self.serial_panel)
@@ -94,6 +108,7 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central)
 
     def _wire_signals(self) -> None:
+        """把各个面板的 Qt signal 接到 MainWindow 的处理函数。"""
         self.serial_panel.open_requested.connect(self._open_serial)
         self.serial_panel.close_requested.connect(self._close_serial)
         self.serial_panel.reconnect_requested.connect(self._reconnect_serial)
@@ -107,6 +122,7 @@ class MainWindow(QMainWindow):
         self.replay_panel.stop_replay_requested.connect(lambda: self.replay_worker and self.replay_worker.stop())
 
     def _open_serial(self, port: str, baudrate: int) -> None:
+        """打开串口；真正读取由 SerialReader 后台线程完成。"""
         self.serial_manager.open(port, baudrate)
         self.health.set_states(serial_state=self.serial_manager.state.name)
 
@@ -119,6 +135,7 @@ class MainWindow(QMainWindow):
         self.health.set_states(serial_state=self.serial_manager.state.name)
 
     def _send_control(self, metadata) -> None:
+        """发送控制命令；bytes 编码由 protocol.commands 完成。"""
         result = self.serial_manager.write_control(metadata)
         if result.success:
             self.statusBar().showMessage("控制命令已发送")
@@ -129,6 +146,7 @@ class MainWindow(QMainWindow):
         self.pipeline.decode_config.k = value
 
     def _start_recording(self, base_dir: str, experiment_name: str) -> None:
+        """启动后台记录，不在 GUI 主线程写数据文件。"""
         metadata = build_metadata(
             record_path=base_dir,
             serial_port=self.serial_manager.status.port,
@@ -149,6 +167,7 @@ class MainWindow(QMainWindow):
         self.health.set_states(recording_state=self.recorder.state.name)
 
     def _start_replay(self, replay_type: str, path: str, speed: float) -> None:
+        """启动回放；初版要求回放和实时串口互斥。"""
         if self.serial_manager.is_connected():
             self._show_error("回放不可用", "请先关闭实时串口连接")
             return
@@ -166,6 +185,7 @@ class MainWindow(QMainWindow):
         self.health.set_states(replay_state=self.replay_worker.state.name)
 
     def _handle_replay_item(self, item) -> None:
+        """处理回放 worker 投递的数据。"""
         if isinstance(item, RawReplayItem):
             self.pipeline.handle_raw_chunk(RawChunk(timestamp_ns=item.timestamp_ns, data=item.data, port="replay"))
         elif isinstance(item, DecodedSample):
@@ -176,6 +196,7 @@ class MainWindow(QMainWindow):
         self.plot_panel.add_sample(sample)
 
     def _refresh_health(self) -> None:
+        """低频刷新健康面板，避免每帧更新 QLabel。"""
         self.health.set_states(
             serial_state=self.serial_manager.state.name,
             recording_state=self.recorder.state.name,

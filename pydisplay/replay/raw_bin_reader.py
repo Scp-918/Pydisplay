@@ -1,4 +1,8 @@
-"""Read raw_frames.bin for replay."""
+"""raw_frames.bin 回放读取模块。
+
+raw bin 回放尽量复用真实链路：读出原始 bytes 后再交给 parser/decoder。
+这样可以检查 parser 在历史数据上的表现，也能复盘坏帧问题。
+"""
 
 from __future__ import annotations
 
@@ -20,6 +24,7 @@ def read_raw_replay_items(
     *,
     include_types: set[RecordType] | None = None,
 ) -> list[RawReplayItem]:
+    """读取 raw bin 并转换成 ReplayWorker 可处理的 RawReplayItem 列表。"""
     _header, records = read_raw_bin(path)
     allowed = include_types or {
         RecordType.RAW_SERIAL_CHUNK,

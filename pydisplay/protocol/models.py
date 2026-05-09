@@ -1,4 +1,16 @@
-"""Dataclasses shared by parser, decoder, and command encoder."""
+"""协议层数据模型。
+
+本文件只定义“数据长什么样”，不做复杂逻辑。
+这样 parser、decoder、串口、记录、GUI 都能使用统一的数据结构。
+
+几个核心概念：
+- RawFrame：原始 bytes；
+- ParsedFrame：parser 验证通过的一帧；
+- DecodedSample：decoder 输出的可绘图、可写 CSV 的一行数据；
+- ParserStats：parser 健康统计；
+- ControlMetadata：GUI 控制参数；
+- CommandFrame：编码后的固件控制帧。
+"""
 
 from __future__ import annotations
 
@@ -25,6 +37,7 @@ class ParsedFrame:
 
 @dataclass(slots=True)
 class ParserStats:
+    """parser 的累计统计，供 health monitor 和 GUI 展示。"""
     total_bytes: int = 0
     total_frames: int = 0
     valid_frames: int = 0
@@ -40,6 +53,7 @@ class ParserStats:
 
     @property
     def bad_frame_ratio(self) -> float:
+        # total_frames 包含有效帧和坏帧；没有帧时比例定义为 0。
         if self.total_frames == 0:
             return 0.0
         return self.bad_frames / self.total_frames
@@ -47,6 +61,11 @@ class ParserStats:
 
 @dataclass(slots=True)
 class DecodeConfig:
+    """decoder 运行配置。
+
+    k 来自 GUI 输入；gyro/accel range 来自当前下位机控制参数。
+    start_time_ns 用于计算相对时间，None 时以当前帧时间为零点。
+    """
     k: float
     start_time_ns: int | None = None
     gyro_range_code: int = 0x02
@@ -56,6 +75,10 @@ class DecodeConfig:
 
 @dataclass(slots=True)
 class DecodedSample:
+    """一条已经解码完成的数据样本。
+
+    字段名和 `decoded.csv`、GUI 曲线 key 保持一致，避免转换时再做复杂映射。
+    """
     timestamp_pc_ns: int
     relative_time_s: float
     frame_seq: int | None

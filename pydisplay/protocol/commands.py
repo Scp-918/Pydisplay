@@ -1,4 +1,12 @@
-"""Control command encoder for the confirmed 13-byte firmware frame."""
+"""固件控制命令编码。
+
+GUI 面板只负责收集用户输入，不直接拼接 bytes。
+所有控制命令都通过这里转换成固件确认的 13 字节格式：
+
+`AB CD mode submode led_g led_r led_ir ppg_range pulse gyro accel EF FA`
+
+固件当前设计没有 ACK/NACK，因此 CommandFrame.expects_ack 固定为 False。
+"""
 
 from __future__ import annotations
 
@@ -18,6 +26,7 @@ from .models import CommandFrame, ControlMetadata
 
 
 def build_control_command(metadata: ControlMetadata) -> CommandFrame:
+    """校验控制参数并编码成可写入串口的 bytes。"""
     _validate(metadata)
     data = bytes(
         [
@@ -40,6 +49,7 @@ def build_control_command(metadata: ControlMetadata) -> CommandFrame:
 
 
 def _validate(metadata: ControlMetadata) -> None:
+    """把参数合法性集中在这里，GUI 和串口层都不用重复判断。"""
     _check_in(metadata.ppg_mode, PPG_MODE_VALUES, "ppg_mode")
     _check_in(metadata.ppg_multi_submode, PPG_MULTI_SUBMODE_VALUES, "ppg_multi_submode")
     if metadata.ppg_mode != 0x01 and metadata.ppg_multi_submode != 0x01:

@@ -1,4 +1,16 @@
-"""Realtime data pipeline wiring serial chunks to parser, decoder, recorder, and GUI queues."""
+"""实时数据 pipeline。
+
+Pipeline 是整个数据链路的“中间调度器”：
+
+RawChunk
+  -> FrameParser
+  -> ParsedFrame
+  -> decode_frame
+  -> DecodedSample
+  -> RecorderWorker / GUI Plot / HealthMonitor
+
+它不直接操作 GUI 控件，也不直接打开串口。
+"""
 
 from __future__ import annotations
 
@@ -18,7 +30,7 @@ LOGGER = logging.getLogger(__name__)
 
 
 class DataPipeline:
-    """Pure-Python pipeline; GUI polls DataBus instead of processing raw streams."""
+    """纯 Python 数据流水线，方便测试和复用。"""
 
     def __init__(
         self,
@@ -38,6 +50,7 @@ class DataPipeline:
         self.on_decoded = on_decoded
 
     def handle_raw_chunk(self, chunk: RawChunk) -> None:
+        """处理串口 reader 或 raw 回放送来的一段原始 bytes。"""
         self.health.add_raw_bytes(len(chunk.data))
         if self.recorder and self.recorder.state.value == "recording":
             self.recorder.enqueue_raw_chunk(chunk.timestamp_ns, chunk.data)

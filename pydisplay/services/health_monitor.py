@@ -1,4 +1,19 @@
-"""Health and performance counters."""
+"""链路健康和性能监控。
+
+HealthMonitor 收集各模块的计数器，并定期生成 HealthSnapshot。
+GUI 只低频读取 snapshot，不要每收到一帧就更新 QLabel。
+
+这里统计：
+- bytes/s；
+- 有效帧率和坏帧率；
+- resync 次数；
+- parser buffer；
+- decoded sample rate；
+- plot FPS；
+- record queue；
+- 串口/记录/回放状态；
+- 最近错误。
+"""
 
 from __future__ import annotations
 
@@ -33,7 +48,7 @@ class HealthSnapshot:
 
 
 class HealthMonitor:
-    """Accumulate counters and return low-frequency snapshots for the GUI."""
+    """累计计数器，并按时间差计算速率。"""
 
     def __init__(self) -> None:
         self.total_bytes = 0
@@ -109,6 +124,10 @@ class HealthMonitor:
         self.last_error = message
 
     def snapshot(self, *, now_ns: int) -> HealthSnapshot:
+        """生成一份当前健康快照。
+
+        速率类指标通过“当前累计值 - 上次累计值 / 时间差”计算。
+        """
         elapsed = 0.0 if self._last_ns is None else max((now_ns - self._last_ns) / 1_000_000_000.0, 1e-9)
         bytes_per_second = 0.0 if self._last_ns is None else (self.total_bytes - self._last_total_bytes) / elapsed
         valid_frame_rate = 0.0 if self._last_ns is None else (self.valid_frames - self._last_valid_frames) / elapsed

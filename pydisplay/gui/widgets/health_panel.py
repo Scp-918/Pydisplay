@@ -1,4 +1,8 @@
-"""Health monitor panel."""
+"""链路健康显示面板。
+
+该面板只显示 HealthSnapshot 中已经算好的结果。
+它不做复杂统计，也不每帧刷新；刷新频率由 MainWindow 的 QTimer 控制。
+"""
 
 from __future__ import annotations
 
@@ -33,6 +37,7 @@ class HealthPanel(QGroupBox):
             layout.addRow(title, label)
 
     def update_snapshot(self, snapshot: HealthSnapshot) -> None:
+        """把 HealthSnapshot 格式化成用户可读中文指标。"""
         values = {
             "serial_state": snapshot.serial_state,
             "recording_state": snapshot.recording_state,

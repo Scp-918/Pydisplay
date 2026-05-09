@@ -1,4 +1,15 @@
-"""Decode confirmed firmware frames into PC-facing samples."""
+"""固件帧 decoder。
+
+parser 只负责判断一帧是否合法；decoder 负责解释每个字段的含义。
+本文件根据 `docs/protocol_analysis.md` 做以下转换：
+
+- int24 AD4007 原始码 -> 电压；
+- uint24 PPG -> 固件 raw count；
+- int16 IMU -> g / dps；
+- Uh/Uc -> UD1/UD2。
+
+注意：不要在这里读串口、写文件或操作 GUI。
+"""
 
 from __future__ import annotations
 
@@ -26,16 +37,19 @@ from .models import DecodeConfig, DecodedSample, ParsedFrame
 
 
 def decode_frame(frame: ParsedFrame, config: DecodeConfig) -> DecodedSample:
+    """把一个合法 ParsedFrame 转成 DecodedSample。"""
     if len(frame.raw) != FRAME_LENGTH:
         raise FrameDecodeError(f"expected {FRAME_LENGTH} bytes, got {len(frame.raw)}")
     if not frame.checksum_ok:
         raise FrameDecodeError("cannot decode frame with failed checksum")
 
     raw = frame.raw
+    # early_code -> Uc，late_code -> Uh；offset 来自 constants.py。
     uc = {channel: _adc_voltage(raw, offsets["uc"]) for channel, offsets in ADC_CHANNEL_OFFSETS.items()}
     uh = {channel: _adc_voltage(raw, offsets["uh"]) for channel, offsets in ADC_CHANNEL_OFFSETS.items()}
 
     warnings: list[str] = []
+    # 用户确认：UD1 使用通道 2，UD2 使用通道 3。
     ud1 = _calculate_ud(uh[2], uc[2], config.k, config.ud_epsilon, "UD1", warnings)
     ud2 = _calculate_ud(uh[3], uc[3], config.k, config.ud_epsilon, "UD2", warnings)
 
@@ -81,6 +95,7 @@ def _lookup_scale(table: dict[int, float], code: int, name: str) -> float:
 
 
 def _adc_voltage(data: bytes, offset: int) -> float:
+    """AD4007 int24 原始码转电压，公式来自用户确认。"""
     return _read_s24(data, offset) * (ADC_VREF / ADC_FULL_SCALE_COUNTS)
 
 
@@ -100,6 +115,7 @@ def _read_s16(data: bytes, offset: int) -> int:
 
 
 def _calculate_ud(uh: float, uc: float, k: float, epsilon: float, label: str, warnings: list[str]) -> float:
+    """计算 UD，分母接近 0 时返回 NaN 而不是抛异常。"""
     denominator = k - uc
     if abs(denominator) < epsilon:
         warnings.append(f"{label} denominator is near zero")

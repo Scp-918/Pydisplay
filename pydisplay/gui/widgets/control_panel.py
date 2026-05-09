@@ -1,4 +1,9 @@
-"""Firmware control panel."""
+"""下位机控制面板。
+
+用户在这里选择 PPG mode、LED 亮度、量程、脉宽和 k 值。
+面板本身不拼接 bytes，只生成 ControlMetadata，通过 signal 交给主窗口。
+最终命令编码由 `pydisplay.protocol.commands` 完成。
+"""
 
 from __future__ import annotations
 
@@ -52,6 +57,7 @@ class ControlPanel(QGroupBox):
         layout.addWidget(send_button)
 
     def _emit_command(self) -> None:
+        """收集 GUI 控件当前值，组装成 ControlMetadata。"""
         self.control_command_requested.emit(
             ControlMetadata(
                 ppg_mode=self.mode_combo.currentData(),

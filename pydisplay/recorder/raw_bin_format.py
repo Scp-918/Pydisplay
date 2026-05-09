@@ -1,4 +1,14 @@
-"""Binary raw data format for protocol replay and debugging."""
+"""raw_frames.bin 二进制格式。
+
+raw_frames.bin 的目的不是给人直接阅读，而是完整保存原始串口数据，
+方便以后重新跑 parser、排查协议问题或复现实验。
+
+文件由两部分组成：
+1. 固定长度文件头；
+2. 多条 record，每条 record 有类型、时间戳、payload 长度和 payload。
+
+所有整数都使用 little-endian，格式见 `docs/data_format.md`。
+"""
 
 from __future__ import annotations
 
@@ -42,7 +52,7 @@ class RawBinRecord:
 
 
 class RawBinWriter:
-    """Write raw serial chunks and frames in a stable little-endian format."""
+    """按稳定格式写 raw bin 文件。"""
 
     def __init__(self, path: str | Path, *, created_unix_ns: int) -> None:
         self.path = Path(path)
@@ -62,6 +72,10 @@ class RawBinWriter:
         self._file.write(_HEADER_STRUCT.pack(MAGIC, FORMAT_VERSION, self.created_unix_ns, HEADER_LENGTH, b"\x00" * 9))
 
     def write_record(self, record_type: RecordType, timestamp_ns: int, payload: bytes) -> None:
+        """写入一条 raw 记录。
+
+        不在这里每条 flush，避免 100 Hz 记录时造成不必要的磁盘压力。
+        """
         if self._file is None:
             raise RawBinFormatError("raw bin writer is not open")
         payload = bytes(payload)
@@ -80,6 +94,7 @@ class RawBinWriter:
 
 
 def read_raw_bin(path: str | Path) -> tuple[RawBinHeader, list[RawBinRecord]]:
+    """一次性读取 raw bin 文件，主要用于测试和回放准备阶段。"""
     with Path(path).open("rb") as file:
         header_bytes = file.read(HEADER_LENGTH)
         if len(header_bytes) != HEADER_LENGTH:

@@ -1,4 +1,10 @@
-"""Background serial reader."""
+"""后台串口读取线程。
+
+串口读取可能阻塞，所以不能放在 GUI 主线程中。
+SerialReader 只负责持续读取 raw bytes，并把它们包装成 RawChunk 交给回调。
+
+它不做协议解析、不写文件、不操作 GUI 控件。
+"""
 
 from __future__ import annotations
 
@@ -20,7 +26,7 @@ class RawChunk:
 
 
 class SerialReader:
-    """Read raw bytes from a serial-like object on a background thread."""
+    """在后台线程中读取串口对象。"""
 
     def __init__(
         self,
@@ -60,6 +66,11 @@ class SerialReader:
         return bool(self._thread and self._thread.is_alive())
 
     def read_once(self, timestamp_ns: int | None = None) -> RawChunk | None:
+        """读取一次串口数据。
+
+        这个方法方便测试，也被后台线程循环调用。
+        没有数据时返回 None，有数据时调用 on_chunk。
+        """
         waiting = self.serial_buffer_bytes
         read_size = min(max(1, waiting), self.max_read_size)
         data = self.serial_obj.read(read_size)
@@ -85,6 +96,7 @@ class SerialReader:
             return 0
 
     def _run(self) -> None:
+        """线程主循环：读数据、捕获异常、按需停止。"""
         while not self._stop_event.is_set():
             try:
                 self.read_once()

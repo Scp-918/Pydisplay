@@ -1,4 +1,8 @@
-"""Recorder panel."""
+"""数据记录面板。
+
+这个面板只让用户选择记录路径和实验名，并发出开始/停止记录请求。
+实际文件写入由 RecorderWorker 后台线程完成。
+"""
 
 from __future__ import annotations
 

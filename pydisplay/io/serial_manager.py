@@ -1,4 +1,15 @@
-"""Serial connection lifecycle manager."""
+"""串口生命周期管理。
+
+SerialManager 统一负责：
+- 打开串口；
+- 关闭串口；
+- 重连；
+- 创建 SerialReader 和 SerialWriter；
+- 保存当前状态；
+- 把错误通过回调交给 GUI/health monitor。
+
+GUI 不直接持有 pyserial.Serial 对象，避免界面代码和底层 I/O 耦合。
+"""
 
 from __future__ import annotations
 
@@ -39,7 +50,7 @@ SerialFactory = Callable[..., object]
 
 
 class SerialManager:
-    """Own the serial object, reader, writer, and observable state."""
+    """管理一个串口连接及其 reader/writer。"""
 
     def __init__(
         self,
@@ -66,6 +77,10 @@ class SerialManager:
         return list_serial_ports()
 
     def open(self, port: str, baudrate: int, *, start_reader: bool = True) -> None:
+        """打开串口。
+
+        `start_reader=False` 主要用于无硬件测试，只验证 open/close 状态。
+        """
         self.close()
         self._set_state(SerialState.CONNECTING, port=port, baudrate=baudrate, error=None)
         try:
@@ -115,6 +130,7 @@ class SerialManager:
         self._set_state(SerialState.DISCONNECTED, port=port, baudrate=baudrate, error=None)
 
     def reconnect(self, *, delay_s: float = 0.2) -> None:
+        """按“关闭 -> 等待 -> 重新打开”的顺序重连。"""
         if not self.status.port or not self.status.baudrate:
             self._set_state(SerialState.ERROR, error="no previous serial port to reconnect", kind=SerialErrorKind.PORT_NOT_FOUND)
             return
@@ -160,6 +176,7 @@ class SerialManager:
 
 
 def _default_serial_factory() -> SerialFactory:
+    """延迟导入 pyserial，避免导入 pydisplay.io 时就要求依赖存在。"""
     try:
         from serial import Serial
     except ImportError as exc:

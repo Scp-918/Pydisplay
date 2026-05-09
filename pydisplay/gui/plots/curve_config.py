@@ -1,4 +1,8 @@
-"""Curve definitions used by the plot panel."""
+"""绘图曲线配置。
+
+每条曲线的 key 必须对应 DecodedSample 的字段名。
+label 是 GUI 中显示的名称，unit 是 y 轴单位或说明。
+"""
 
 from __future__ import annotations
 

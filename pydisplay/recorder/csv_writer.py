@@ -1,4 +1,8 @@
-"""Decoded CSV writer."""
+"""decoded.csv 写入模块。
+
+CSV 文件面向实验数据分析，适合 Excel / Origin / MATLAB / Python 读取。
+这里使用标准库 csv，不使用 pandas，也不会每帧打开/关闭文件。
+"""
 
 from __future__ import annotations
 
@@ -39,7 +43,7 @@ CSV_FIELDS = [
 
 
 class DecodedCsvWriter:
-    """Write decoded samples with standard csv, no pandas dependency."""
+    """把 DecodedSample 写成固定字段顺序的 CSV。"""
 
     def __init__(self, path: str | Path) -> None:
         self.path = Path(path)
@@ -77,6 +81,7 @@ class DecodedCsvWriter:
 
 
 def sample_to_csv_row(sample: DecodedSample) -> dict[str, object]:
+    """把 dataclass 字段转换成 CSV 表头对应的字典。"""
     return {
         "relative_time_s": sample.relative_time_s,
         "timestamp_pc_ns": sample.timestamp_pc_ns,

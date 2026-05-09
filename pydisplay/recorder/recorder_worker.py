@@ -1,4 +1,13 @@
-"""Background recorder worker."""
+"""后台记录线程。
+
+RecorderWorker 负责把数据批量写入三个文件：
+- raw_frames.bin；
+- decoded.csv；
+- metadata.json。
+
+GUI 主线程不直接写文件，只把事件放进队列。
+停止记录时会 final flush，并补写 metadata 的结束时间。
+"""
 
 from __future__ import annotations
 
@@ -39,7 +48,7 @@ class RecordEvent:
 
 
 class RecorderWorker:
-    """Batch file writer for raw bin, decoded csv, and metadata."""
+    """批量文件写入 worker。"""
 
     def __init__(self, *, max_queue_size: int = 10000, flush_interval_s: float = 1.0) -> None:
         self.queue: queue.Queue[RecordEvent] = queue.Queue(maxsize=max_queue_size)
@@ -64,6 +73,7 @@ class RecorderWorker:
         experiment_name: str = "experiment",
         metadata: dict | None = None,
     ) -> Path:
+        """创建 session 目录，打开三个记录文件，并启动后台线程。"""
         if self.state == RecordingState.RECORDING:
             raise RuntimeError("recorder is already running")
         self.state = RecordingState.STARTING
@@ -86,6 +96,7 @@ class RecorderWorker:
         return self.session_dir
 
     def stop(self, timeout_s: float = 3.0) -> None:
+        """通知后台线程停止，并完成最后一次 flush/metadata 更新。"""
         if self.state not in {RecordingState.RECORDING, RecordingState.ERROR}:
             return
         self.state = RecordingState.STOPPING
@@ -111,6 +122,7 @@ class RecorderWorker:
         self.queue.put(RecordEvent("stop", time.time_ns(), None))
 
     def _run(self) -> None:
+        """后台线程主循环：从队列取事件并写入对应文件。"""
         last_flush = time.monotonic()
         try:
             while True:

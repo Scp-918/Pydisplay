@@ -1,4 +1,10 @@
-"""Realtime plot panel."""
+"""实时绘图面板。
+
+PlotPanel 保存 ring buffer，并通过 QTimer 默认约 20 Hz 刷新 PyQtGraph 曲线。
+收到 sample 时只写入 buffer；曲线刷新由定时器统一完成。
+
+暂停绘图只停止曲线刷新，不影响串口接收和记录。
+"""
 
 from __future__ import annotations
 
@@ -47,6 +53,7 @@ class PlotPanel(QGroupBox):
         self.timer.start()
 
     def add_sample(self, sample: DecodedSample) -> None:
+        """追加一条 decoded sample 到绘图 ring buffer。"""
         self.buffer.append(sample)
 
     def set_paused(self, paused: bool) -> None:
@@ -57,6 +64,7 @@ class PlotPanel(QGroupBox):
             self.plot_manager.set_curve_visible(key, visible)
 
     def refresh(self) -> None:
+        """定时刷新曲线；只调用 PlotDataItem.setData()。"""
         if self.paused or self.plot_manager is None:
             return
         self.plot_manager.refresh(self.buffer)
