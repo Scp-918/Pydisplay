@@ -1,3 +1,8 @@
+---
+name: pydisplay-recorder-replay
+description: Use when implementing or modifying Pydisplay raw_frames.bin recording, decoded.csv writing, metadata.json generation, RecorderWorker batching, raw-bin replay, decoded-csv replay, and replay controls.
+---
+
 # Skill: pydisplay-recorder-replay
 
 ## 1. 适用场景

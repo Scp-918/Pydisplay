@@ -1,3 +1,8 @@
+---
+name: pydisplay-testing-packaging
+description: Use when adding pytest tests, no-hardware validation, replay tests, packaging scaffolding, pyproject.toml, README instructions, manual test checklists, and staged acceptance criteria for Pydisplay.
+---
+
 # Skill: pydisplay-testing-packaging
 
 ## 1. 适用场景

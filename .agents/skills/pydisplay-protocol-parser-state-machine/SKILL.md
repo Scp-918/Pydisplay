@@ -1,3 +1,8 @@
+---
+name: pydisplay-protocol-parser-state-machine
+description: Use when implementing or modifying the Pydisplay binary protocol parser, resynchronization state machine, bad-frame statistics, decoder, UD calculation, and protocol unit tests.
+---
+
 # Skill: pydisplay-protocol-parser-state-machine
 
 ## 1. 适用场景

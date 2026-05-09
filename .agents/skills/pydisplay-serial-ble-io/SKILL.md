@@ -1,3 +1,8 @@
+---
+name: pydisplay-serial-ble-io
+description: Use when implementing or debugging Pydisplay serial port discovery, HJ380 BLE serial connection management, background serial reading, command writing, reconnection, and serial exception handling.
+---
+
 # Skill: pydisplay-serial-ble-io
 
 ## 1. 适用场景

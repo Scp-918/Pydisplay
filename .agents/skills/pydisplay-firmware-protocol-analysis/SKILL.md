@@ -1,3 +1,8 @@
+---
+name: pydisplay-firmware-protocol-analysis
+description: Use when analyzing STM32G474 firmware source, sensorlist files, serial/BLE frame layout, checksum rules, scaling factors, and host control command formats before implementing the Python upper-computer protocol parser.
+---
+
 # Skill: pydisplay-firmware-protocol-analysis
 
 ## 1. 适用场景

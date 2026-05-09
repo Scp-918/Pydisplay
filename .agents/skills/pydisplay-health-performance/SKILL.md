@@ -1,3 +1,8 @@
+---
+name: pydisplay-health-performance
+description: Use when implementing or optimizing Pydisplay health monitoring, bytes-per-second metrics, valid and bad frame rates, resync statistics, parser buffer metrics, plot FPS, record queue length, and anti-freeze performance safeguards.
+---
+
 # Skill: pydisplay-health-performance
 
 ## 1. 适用场景

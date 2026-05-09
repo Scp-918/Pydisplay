@@ -1,3 +1,8 @@
+---
+name: pydisplay-pyside6-pyqtgraph-gui
+description: Use when implementing or modifying the Pydisplay PySide6 GUI, PyQtGraph real-time plots, Chinese UI panels, curve visibility controls, plotting pause/resume behavior, and GUI-thread safety.
+---
+
 # Skill: pydisplay-pyside6-pyqtgraph-gui
 
 ## 1. 适用场景
