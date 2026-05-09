@@ -1,372 +1,428 @@
-# AGENTS.md
+# AGENTS.md — Pydisplay Python 上位机开发规范
 
-## 0. 项目定位
+## 0. 项目背景
 
-本项目是在现有文件夹 `D:\Desktop\STM32G474\Pydisplay` 下开发一个 Python GUI 上位机子项目，用于 STM32G474 下位机实验数据的接收、协议解析、数据解算、实时绘图、控制命令发送、数据记录、链路健康监控和离线回放。
+本项目是在现有目录 `D:\Desktop\STM32G474\Pydisplay` 下开发一个 Python GUI 上位机子项目。
 
-上位机技术栈：
+目标是连接 STM32G474 下位机系统，通过 PC 端 HJ380 蓝牙串口模块接收由 HJ131 蓝牙模块发送的数据，完成：
 
-- Python 3.11
-- PySide6
-- PyQtGraph
-- pyserial
-- numpy
-- pandas
-- scipy
-- psutil
-- pyyaml
-- pytest / pytest-qt / pytest-cov / pytest-timeout
-- ruff / black / mypy / isort
-- pyinstaller
+- 串口选择、连接、关闭、重连；
+- 连续数据接收；
+- 基于 STM32 固件实际协议的二进制帧解析；
+- PPG / IMU / 电压类数据解算；
+- PySide6 + PyQtGraph 实时绘图；
+- 下位机控制命令发送；
+- raw bin + decoded csv + metadata json 数据记录；
+- 链路健康监控；
+- raw_frames.bin / decoded.csv 回放；
+- 无硬件情况下的测试支持。
 
-指定 Python 解释器：
+STM32 固件仓库：
 
 ```text
-D:\Code\anaconda24\envs\Pydisplay_env\python
+https://github.com/Scp-918/PulseTIMR2/tree/Single
 ```
 
-开发目录：
+STM32 型号：
 
 ```text
-D:\Desktop\STM32G474\Pydisplay
+STM32G474
 ```
 
-下位机信息：
+构建系统：
 
-* MCU：STM32G474
-* 固件仓库：`https://github.com/Scp-918/PulseTIMR2/tree/Single`
-* 构建系统：CMake
-* 下位机发送端：HJ131 蓝牙模块
-* 上位机接收端：HJ380 蓝牙模块
-* 传感器手册：固件工程中的 `sensorlist` 部分
+```text
+CMake
+```
 
-必须注意：
+蓝牙链路：
 
-> 本项目的通信协议、字段顺序、缩放系数、控制命令格式必须从固件源码、协议定义文件、sensorlist 或相关文档中确认。禁止凭经验臆造协议。
+```text
+下位机：HJ131 蓝牙模块发送
+上位机：HJ380 蓝牙模块接收串口数据
+```
 
-当前已知协议事实：
+Python 虚拟环境：
 
-* 帧头为：`0xAA 0xBB`
-* 帧尾为：`0xCC`
+```text
+Pydisplay_env
+```
 
-除上述已知事实外，其他协议细节均必须从源码或文档确认后再实现。
+注意：用户已经说明 `Pydisplay_env` 中依赖包已经安装完成，不要把“检查依赖是否安装”作为阻塞项。可以在必要时记录运行环境，但不要停止开发等待用户安装包。
 
 ---
 
-## A. Codex 的任务目标与计划
+## A. Codex 的任务目标与总体计划
 
-### A.1 总目标
+### A.1 最终目标
 
-在 `D:\Desktop\STM32G474\Pydisplay` 下实现一个可运行、可测试、可长期实验使用的 Python GUI 上位机，完成：
+在 `D:\Desktop\STM32G474\Pydisplay` 下完成一个可运行、可测试、可扩展的 Python 上位机项目，实现：
 
-1. 串口选择、打开、关闭、重连；
-2. HJ380 蓝牙串口数据接收；
-3. 按 STM32 固件真实协议进行帧解析；
-4. PPG、IMU、电压、UD 信号解算；
-5. PySide6 + PyQtGraph 实时绘图；
-6. 控制命令发送；
-7. raw frame 与 decoded CSV 全量记录；
-8. metadata.json 自动生成；
-9. 链路健康监控；
-10. raw_frames.bin / decoded.csv 回放；
-11. 测试阶段的模拟数据源或虚拟串口测试支持；
-12. 单元测试、基础集成测试、GUI 基础测试；
-13. 打包准备。
+1. 串口通信；
+2. 固件真实协议解析；
+3. 数据解算；
+4. 实时绘图；
+5. 下位机控制；
+6. 数据记录；
+7. 链路健康监控；
+8. 数据回放；
+9. 测试与基础打包入口。
 
-### A.2 总体开发策略
+### A.2 分阶段开发原则
 
-不得一次性盲目重写全部工程。必须分阶段小步提交。
+不得一次性重写全部工程。必须按阶段推进：
 
-推荐阶段：
+1. **阶段 0：仓库与协议调查**
 
-1. 初始化项目结构；
-2. 阅读固件仓库，输出协议分析报告；
-3. 若协议清楚，实现协议层和测试；
-4. 实现解码层和数据模型；
-5. 实现串口读取线程；
-6. 实现记录线程；
-7. 实现回放线程；
-8. 实现 GUI 框架；
-9. 接入实时绘图；
-10. 接入控制命令发送；
-11. 接入健康监控；
-12. 增加模拟数据源；
-13. 增加测试；
-14. 长时间运行压测；
-15. PyInstaller 打包准备。
+   * 阅读 STM32 固件源码；
+   * 阅读 sensorlist；
+   * 搜索协议定义、串口发送代码、控制命令解析代码；
+   * 输出 `docs/protocol_analysis.md`；
+   * 若协议不完整，先暂停并报告待确认问题。
 
-每个阶段通过测试后执行 git commit。
+2. **阶段 1：建立 Python 项目骨架**
 
-推荐提交粒度示例：
+   * 建立包结构；
+   * 建立入口；
+   * 建立配置、日志、数据模型；
+   * 不要先实现复杂 GUI。
+
+3. **阶段 2：实现协议 parser / decoder 的纯 Python 核心**
+
+   * 实现状态机；
+   * 实现坏帧统计；
+   * 实现解码数据结构；
+   * 用单元测试覆盖正常帧、粘包、半包、错帧、resync。
+
+4. **阶段 3：实现串口读取与命令发送**
+
+   * 串口读取线程；
+   * 连接、断开、重连；
+   * 异常不阻塞 GUI；
+   * 控制命令必须来自固件真实定义。
+
+5. **阶段 4：实现数据记录**
+
+   * `raw_frames.bin`；
+   * `decoded.csv`；
+   * `metadata.json`；
+   * 记录线程批量写入；
+   * GUI 主线程不写文件。
+
+6. **阶段 5：实现基础 GUI**
+
+   * 串口区；
+   * 控制区；
+   * 记录区；
+   * 健康监控区；
+   * 回放区；
+   * 实时绘图区。
+
+7. **阶段 6：实现 PyQtGraph 实时绘图**
+
+   * 10–30 FPS 绘图刷新；
+   * 默认 20 Hz；
+   * 最近 N 秒窗口；
+   * 支持暂停绘图但继续记录；
+   * 支持隐藏曲线。
+
+8. **阶段 7：实现回放模式**
+
+   * 从 raw bin 回放；
+   * 从 decoded csv 回放；
+   * 支持暂停、继续、倍速、慢速；
+   * 尽量模拟 100 Hz 节奏。
+
+9. **阶段 8：集成测试与验收**
+
+   * 有硬件时串口测试；
+   * 无硬件时模拟数据或回放测试；
+   * 检查 GUI 卡顿；
+   * 检查记录文件完整性；
+   * 检查 metadata 字段完整性。
+
+### A.3 Git 保存要求
+
+每个阶段完成并通过基本测试后：
 
 ```bash
+git status
+git diff
 git add .
-git commit -m "init pydisplay project structure"
-git add .
-git commit -m "add firmware protocol analysis report"
-git add .
-git commit -m "implement protocol parser with tests"
-git add .
-git commit -m "implement decoder and data models"
-git add .
-git commit -m "implement serial reader worker"
-git add .
-git commit -m "implement recorder worker"
-git add .
-git commit -m "implement replay worker"
-git add .
-git commit -m "implement pyside6 main window layout"
-git add .
-git commit -m "add realtime pyqtgraph plotting"
-git add .
-git commit -m "add command sending and validation"
-git add .
-git commit -m "add health monitor and status panel"
-git add .
-git commit -m "add simulator and integration tests"
+git commit -m "..."
 ```
+
+如果当前目录不是 git 仓库，则不要强行初始化，先报告当前状态，并继续完成代码变更。若用户后续要求再初始化 git。
 
 ---
 
-## B. 在修改代码前必须先检查的文件和内容
+## B. 修改代码前必须先检查的文件和内容
 
-在写任何 Python 上位机协议代码前，必须先检查下位机固件仓库。
+在实现任何通信协议、解析器、控制命令、缩放系数之前，必须先检查以下内容。
 
-### B.1 必须检查的固件内容
+### B.1 固件仓库源码
+
+需要从以下仓库或本地对应源码中检查：
+
+```text
+https://github.com/Scp-918/PulseTIMR2/tree/Single
+```
 
 优先检查：
 
 ```text
-PulseTIMR2/
-PulseTIMR2/Core/
-PulseTIMR2/Core/Src/
-PulseTIMR2/Core/Inc/
-PulseTIMR2/Drivers/
-PulseTIMR2/CMakeLists.txt
-PulseTIMR2/sensorlist/
+CMakeLists.txt
+Core/Src/
+Core/Inc/
+Drivers/
+Middlewares/
+sensorlist/
+*.c
+*.h
+*.cpp
+*.hpp
+*.md
+*.txt
 ```
 
-需要用 `ripgrep` 搜索以下关键词：
+如果仓库已经被 clone 到本地，则优先使用本地文件。否则再根据可用方式获取源码。
 
-```bash
-rg "0xAA|0xBB|0xCC|AA BB|frame|Frame|FRAME|uart|UART|USART|DMA|BLE|HJ131|HJ380|packet|Packet|checksum|crc|CRC|PPG|IMU|acc|gyro|Uh|Uc|metadata|mode|brightness|range|pulse|width|LED"
+### B.2 必须搜索的关键词
+
+至少搜索以下关键词：
+
+```text
+AA
+BB
+CC
+0xAA
+0xBB
+0xCC
+UART
+USART
+HAL_UART
+HAL_UART_Transmit
+HAL_UART_Receive
+DMA
+BLE
+HJ131
+HJ380
+frame
+packet
+protocol
+checksum
+crc
+crc8
+crc16
+sum
+tail
+header
+PPG
+IMU
+acc
+gyro
+Uh
+Uc
+UD
+metadata
+mode
+LED
+range
+pulse
+cmd
+command
+control
+sensorlist
 ```
 
-### B.2 必须确认的数据帧内容
+### B.3 必须确认的协议内容
 
-必须确认：
+必须在 `docs/protocol_analysis.md` 中明确写出：
 
 1. 帧头；
 2. 帧尾；
-3. 帧总长度；
+3. 固定帧长或变长规则；
 4. payload 长度；
 5. 字段顺序；
-6. 字段类型；
-7. 字节序；
-8. 是否有帧序号；
-9. 是否有时间戳；
-10. 是否有采样序号；
-11. PPG_G / PPG_R / PPG_IR 原始字段；
-12. 加速度计三轴字段；
-13. 陀螺仪三轴字段；
-14. 4 路 Uh 字段；
-15. 4 路 Uc 字段；
-16. 电压缩放系数；
-17. PPG 缩放系数；
-18. IMU 加速度缩放系数；
-19. IMU 陀螺仪缩放系数；
-20. 校验方式；
-21. 坏帧处理逻辑；
-22. 上位机控制命令格式。
+6. 每个字段的数据类型；
+7. 每个字段字节数；
+8. 字节序；
+9. 校验方式；
+10. PPG_G / PPG_R / PPG_IR 原始值含义；
+11. 加速度计三轴原始值含义；
+12. 陀螺仪三轴原始值含义；
+13. 4 路 Uh 原始值含义；
+14. 4 路 Uc 原始值含义；
+15. 电压缩放系数；
+16. PPG 缩放系数；
+17. IMU 缩放系数；
+18. 帧序号或采样序号是否存在；
+19. 时间戳是否由下位机提供；
+20. 上位机控制命令格式；
+21. metadata 控制参数枚举或取值范围；
+22. 协议版本信息；
+23. 未确认问题清单。
 
-### B.3 必须确认的控制命令
+### B.4 sensorlist 检查要求
 
-必须确认 GUI 需要发送的命令格式：
+必须检查工程中的 `sensorlist` 部分，确认：
 
-1. PPG mode；
-2. LED 亮度；
-3. PPG 量程；
-4. 脉宽；
-5. IMU 量程。
+1. 传感器型号；
+2. PPG 数据格式；
+3. IMU 数据格式；
+4. 电压 / ADC 转换方式；
+5. PPG mode；
+6. LED 亮度；
+7. PPG 量程；
+8. 脉宽；
+9. IMU 量程；
+10. 任何寄存器配置和单位换算说明。
 
-必须确认：
+### B.5 不允许跳过协议分析
 
-1. 命令帧头；
-2. 命令帧尾；
-3. 命令 ID；
-4. 参数字段；
-5. 参数合法范围；
-6. 字节序；
-7. 校验；
-8. 下位机是否返回 ACK / NACK；
-9. 超时与重发策略。
-
-### B.4 必须输出协议分析报告
-
-在实现 parser 前，必须生成：
+如果协议定义不清楚，不得继续实现“假协议解析器”。必须先输出：
 
 ```text
 docs/protocol_analysis.md
+docs/protocol_questions.md
 ```
 
-内容至少包括：
-
-```markdown
-# Protocol Analysis
-
-## Firmware source files checked
-
-列出实际检查过的源码、头文件、sensorlist 文件。
-
-## Data frame format
-
-- Header:
-- Tail:
-- Frame length:
-- Payload length:
-- Field order:
-- Field type:
-- Endianness:
-- Checksum:
-- Sample rate:
-- Sequence field:
-- Timestamp field:
-
-## Scaling factors
-
-- PPG_G:
-- PPG_R:
-- PPG_IR:
-- Accel X/Y/Z:
-- Gyro X/Y/Z:
-- Uh[0:4]:
-- Uc[0:4]:
-
-## Control command format
-
-- PPG mode:
-- LED brightness:
-- PPG range:
-- Pulse width:
-- IMU range:
-
-## Unresolved questions
-
-列出所有无法从源码确认的问题。
-
-## Implementation decision
-
-只有在协议足够清楚时，才允许继续实现 parser。
-```
+然后暂停并报告用户需要确认的问题。
 
 ---
 
 ## C. 禁止假设的内容，尤其是通信协议
 
-### C.1 严禁假设
+### C.1 已知且可使用的事实
 
-禁止假设以下内容：
+用户已明确确认：
 
-1. 帧长度；
+```text
+帧头：0xAA 0xBB
+帧尾：0xCC
+```
+
+这两个事实可以直接作为初始 parser 设计约束。
+
+### C.2 禁止臆造的内容
+
+以下内容禁止凭经验假设，必须从固件、sensorlist 或文档中确认：
+
+1. 帧总长度；
 2. payload 长度；
 3. 字段顺序；
-4. 字段数据类型；
-5. 字节序；
-6. 校验算法；
-7. PPG 缩放系数；
-8. IMU 缩放系数；
-9. 电压缩放系数；
-10. 控制命令 ID；
-11. 控制命令参数范围；
-12. ACK / NACK 格式；
-13. 采样频率是否固定为 100 Hz；
-14. 固件是否发送时间戳；
-15. 固件是否发送帧序号。
+4. 每个字段的字节数；
+5. 有符号 / 无符号类型；
+6. float / int / fixed-point 表示；
+7. little-endian / big-endian；
+8. checksum / CRC 算法；
+9. CRC 多项式；
+10. PPG 缩放系数；
+11. IMU 缩放系数；
+12. 电压缩放系数；
+13. Uh / Uc 的原始单位；
+14. UD 的 k 值含义和范围；
+15. 控制命令帧格式；
+16. PPG mode 枚举；
+17. LED 亮度范围；
+18. PPG 量程枚举；
+19. 脉宽枚举；
+20. IMU 量程枚举；
+21. 协议版本。
 
-### C.2 已知事实
+### C.3 不能做的事情
 
-当前用户已确认：
-
-```text
-Frame header = 0xAA 0xBB
-Frame tail   = 0xCC
-```
-
-仅可把这两项作为已知事实。其他内容必须确认。
-
-### C.3 协议不清楚时的处理
-
-如果源码中无法确认协议，必须暂停实现 parser，并输出：
+不得因为 GUI 需要数据就临时编造如下结构：
 
 ```text
-docs/protocol_blockers.md
+AA BB + 固定 payload + checksum + CC
 ```
 
-内容包括：
+除非该结构已被固件源码证实。
 
-1. 已确认内容；
-2. 未确认内容；
-3. 需要用户或固件工程师确认的问题；
-4. 建议的最小协议文档模板；
-5. 暂时可以实现的非协议模块，例如 GUI 骨架、记录框架、回放框架、模拟数据接口。
+可以临时实现 “模拟数据源” 用于 GUI 测试，但必须明确标注为：
 
-不得编造协议继续实现。
+```text
+simulation only
+not firmware protocol
+```
+
+模拟数据不得冒充真实协议。
 
 ---
 
 ## D. 推荐的 Pydisplay 文件夹架构
 
-推荐项目结构：
+目标目录建议如下。可以根据实际情况小幅调整，但必须保持模块职责清晰。
 
 ```text
 Pydisplay/
   AGENTS.md
   README.md
   pyproject.toml
-  requirements.txt
-  requirements-dev.txt
+  requirements.txt              # 可选：仅记录依赖，不强制重装
   .gitignore
-  .ruff.toml
-  mypy.ini
+
+  .agents/
+    skills/
+      pydisplay-firmware-protocol-analysis/
+        SKILL.md
+      pydisplay-protocol-parser-state-machine/
+        SKILL.md
+      pydisplay-serial-ble-io/
+        SKILL.md
+      pydisplay-pyside6-pyqtgraph-gui/
+        SKILL.md
+      pydisplay-recorder-replay/
+        SKILL.md
+      pydisplay-health-performance/
+        SKILL.md
+      pydisplay-testing-packaging/
+        SKILL.md
 
   docs/
     protocol_analysis.md
-    protocol_blockers.md
-    architecture.md
+    protocol_questions.md
+    data_format.md
     user_manual.md
-    test_plan.md
 
   pydisplay/
     __init__.py
     __main__.py
-
     app.py
+    config.py
+    logging_config.py
     version.py
-
-    core/
-      __init__.py
-      models.py
-      constants.py
-      exceptions.py
-      timebase.py
 
     protocol/
       __init__.py
+      constants.py
+      models.py
       parser.py
       decoder.py
-      command.py
-      checksum.py
-      spec.py
+      commands.py
+      errors.py
 
     io/
       __init__.py
+      serial_manager.py
       serial_reader.py
-      serial_port.py
-      recorder.py
-      replay.py
-      raw_format.py
-      csv_format.py
+      serial_writer.py
+      port_discovery.py
+      simulated_device.py
+
+    recorder/
+      __init__.py
+      recorder_worker.py
+      raw_bin_format.py
+      csv_writer.py
       metadata.py
+
+    replay/
+      __init__.py
+      replay_worker.py
+      raw_bin_reader.py
+      decoded_csv_reader.py
 
     gui/
       __init__.py
@@ -375,401 +431,517 @@ Pydisplay/
         __init__.py
         serial_panel.py
         control_panel.py
-        record_panel.py
+        recorder_panel.py
         health_panel.py
         replay_panel.py
         plot_panel.py
       plots/
         __init__.py
-        realtime_plot.py
-        plot_buffers.py
+        ring_buffer.py
+        plot_manager.py
+        curve_config.py
 
     services/
       __init__.py
+      pipeline.py
       health_monitor.py
-      app_controller.py
-      data_router.py
-
-    simulator/
-      __init__.py
-      fake_device.py
-      fake_frames.py
-      virtual_serial.py
+      data_bus.py
 
     utils/
       __init__.py
-      logging_config.py
-      path_utils.py
-      qt_utils.py
-      system_info.py
+      timebase.py
+      paths.py
+      safe_queue.py
 
   tests/
-    conftest.py
-    test_parser.py
+    test_protocol_parser.py
     test_decoder.py
-    test_command.py
-    test_recorder.py
+    test_commands.py
+    test_raw_bin_format.py
     test_replay.py
-    test_health_monitor.py
-    test_gui_smoke.py
 
   scripts/
-    run_app.bat
-    run_tests.bat
-    format.bat
-    lint.bat
-    make_fake_data.py
-    run_fake_device.py
-    package_pyinstaller.bat
-
-  sample_data/
-    README.md
-    raw_frames_example.bin
-    decoded_example.csv
-    metadata_example.json
-
-  logs/
-    .gitkeep
-
-  recordings/
-    .gitkeep
+    run_app.py
+    simulate_device.py
+    inspect_raw_bin.py
 ```
+
+注意：
+
+1. 不要求第一阶段一次性创建所有文件。
+2. 应按阶段逐步增加模块。
+3. 每个模块需要有清晰 docstring 和中文注释，便于实验人员维护。
+4. GUI 文案使用中文，但代码命名使用英文。
 
 ---
 
 ## E. 每个模块的职责说明
 
-### E.1 `pydisplay.app`
+### E.1 `pydisplay.protocol`
 
-应用入口。负责：
+负责协议相关逻辑，不依赖 GUI。
 
-1. 创建 QApplication；
-2. 初始化日志；
-3. 创建主窗口；
-4. 启动 Qt 事件循环。
+#### `constants.py`
 
-### E.2 `pydisplay.__main__`
+存放从固件确认后的协议常量，例如：
 
-支持：
-
-```bash
-python -m pydisplay
+```text
+FRAME_HEADER
+FRAME_TAIL
+FRAME_LENGTH
+PAYLOAD_LENGTH
+PROTOCOL_VERSION
 ```
 
-### E.3 `core.models`
+注意：除 `FRAME_HEADER = b"\xAA\xBB"` 和 `FRAME_TAIL = b"\xCC"` 外，其他常量必须由固件确认后再写入。
 
-定义核心数据模型。
+#### `models.py`
 
-建议至少包含：
+定义数据结构：
 
-1. `RawFrame`
-2. `DecodedSample`
-3. `ControlSettings`
-4. `SerialConfig`
-5. `RecordConfig`
-6. `HealthStats`
-7. `ParserStats`
-8. `ReplayConfig`
+```text
+RawFrame
+ParsedFrame
+DecodedSample
+ParserStats
+ControlMetadata
+CommandFrame
+```
 
-### E.4 `core.constants`
+建议使用 `dataclasses.dataclass`。
 
-定义常量：
+#### `parser.py`
 
-1. 默认波特率；
-2. 默认绘图刷新率；
-3. 默认状态刷新率；
-4. 默认显示窗口秒数；
-5. 默认 k 值；
-6. 软件版本；
-7. 协议版本；
-8. CSV 字段名。
+实现二进制帧状态机。
 
-### E.5 `core.exceptions`
+职责：
 
-定义明确异常类型：
+* 连续接收 bytes；
+* 找帧头；
+* 收帧体；
+* 校验；
+* 找帧尾；
+* 输出 ParsedFrame；
+* 统计坏帧；
+* resync；
+* 不因坏帧丢弃整段数据流。
 
-1. `ProtocolError`
-2. `ChecksumError`
-3. `FrameSyncError`
-4. `SerialConnectionError`
-5. `RecorderError`
-6. `ReplayError`
-7. `CommandFormatError`
+#### `decoder.py`
 
-### E.6 `protocol.spec`
+负责将 `ParsedFrame` 解码成 `DecodedSample`。
 
-承载从固件确认后的协议定义。
+解码内容：
 
-注意：
+```text
+timestamp_pc_ns
+relative_time_s
+frame_seq or sample_seq
+PPG_G
+PPG_R
+PPG_IR
+ACC_X
+ACC_Y
+ACC_Z
+GYRO_X
+GYRO_Y
+GYRO_Z
+Uh1
+Uh2
+Uh3
+Uh4
+Uc1
+Uc2
+Uc3
+Uc4
+UD1
+UD2
+```
 
-* 不得在未确认前写死虚构协议。
-* 如果协议尚未确认，可以保留 TODO 和异常提示。
-* 协议确认后再补充 frame layout。
-
-### E.7 `protocol.parser`
-
-负责字节流到帧的解析。
-
-要求：
-
-1. 支持连续 byte stream；
-2. 支持半帧；
-3. 支持粘包；
-4. 支持坏帧；
-5. 支持 resync；
-6. 维护坏帧统计；
-7. 不因坏帧丢弃整段数据流。
-
-### E.8 `protocol.decoder`
-
-负责 RawFrame 到 DecodedSample 的转换。
-
-要求：
-
-1. 根据真实字段顺序解析；
-2. 应用真实缩放系数；
-3. 解算 PPG；
-4. 解算 IMU；
-5. 解算 Uh / Uc；
-6. 解算 UD：
+UD 公式：
 
 ```text
 UD = (Uh - Uc) / (k - Uc)
 ```
 
-注意：
+k 来自 GUI 输入。
 
-* k 是 GUI 可输入常量。
-* 解算时必须保留时间戳、帧序号或采样序号。
-* 需要处理分母接近 0 的情况。
+#### `commands.py`
 
-### E.9 `protocol.command`
+负责上位机控制命令编码。
 
-负责控制命令打包。
+必须基于固件真实命令格式实现，不得臆造。
 
-支持至少：
+至少支持 metadata 参数：
 
-1. PPG mode；
-2. LED 亮度；
-3. PPG 量程；
-4. 脉宽；
-5. IMU 量程。
+```text
+PPG mode
+LED brightness
+PPG range
+pulse width
+IMU range
+```
+
+职责：
+
+* 参数合法性检查；
+* 命令编码；
+* 命令发送前预览；
+* 命令发送失败时返回错误信息。
+
+---
+
+### E.2 `pydisplay.io`
+
+负责串口与模拟数据源。
+
+#### `serial_manager.py`
+
+负责串口打开、关闭、重连、状态管理。
+
+#### `serial_reader.py`
+
+独立线程或 QObject worker，负责连续读取串口 bytes。
 
 要求：
 
-1. 发送前做合法性检查；
-2. 按固件真实格式打包；
-3. 发送失败返回明确错误；
-4. 如果固件支持 ACK / NACK，需要实现超时处理。
+* 不阻塞 GUI；
+* 支持异常捕获；
+* 支持端口占用；
+* 支持蓝牙断连；
+* 支持 HJ380 拔出；
+* 状态变化发给 GUI 和 health monitor。
 
-### E.10 `io.serial_reader`
+#### `serial_writer.py`
 
-串口读取线程。
+负责发送控制命令。
 
-职责：
+要求：
 
-1. 打开串口；
-2. 连续读取 bytes；
-3. 捕获异常；
-4. 不阻塞 GUI；
-5. 向 parser 或数据路由发送原始 bytes；
-6. 统计 bytes/s；
-7. 检测端口拔掉、占用、蓝牙断连；
-8. 支持关闭和重连。
+* 发送前检查串口状态；
+* 发送失败要有明确状态提示；
+* 不得在 GUI 线程中做长时间阻塞。
 
-### E.11 `io.recorder`
+#### `port_discovery.py`
 
-记录线程。
+负责列出可用串口号。
 
-职责：
+#### `simulated_device.py`
 
-1. 批量写入 `raw_frames.bin`；
-2. 批量写入 `decoded.csv`；
-3. 写入 `metadata.json`；
-4. 不在 GUI 主线程写文件；
-5. 不每帧 flush；
-6. 不每帧 pandas append；
-7. 支持安全停止；
-8. 停止时补全 metadata 的结束时间。
+可选测试工具。
 
-### E.12 `io.replay`
+用于没有硬件时模拟下位机发送数据。
+
+注意：
+
+* 如果虚拟串口方案失败，不要阻塞主项目；
+* 可改为文件回放或内存模拟数据；
+* 模拟数据必须明确标注为 simulation only。
+
+---
+
+### E.3 `pydisplay.recorder`
+
+负责数据记录。
+
+#### `recorder_worker.py`
+
+独立记录线程，负责批量写入：
+
+```text
+raw_frames.bin
+decoded.csv
+metadata.json
+```
+
+要求：
+
+* GUI 主线程不写文件；
+* 不要每帧 flush；
+* 不要每帧 pandas append；
+* 使用 queue 接收待写数据；
+* 批量写入；
+* 记录开始、暂停、停止状态明确。
+
+#### `raw_bin_format.py`
+
+定义 raw bin 格式。
+
+建议 raw bin 不只保存 decoded frame，而是尽量保存原始接收数据或原始帧数据与 PC 时间戳，便于复盘协议问题。
+
+推荐格式：
+
+```text
+File header:
+  magic: b"PYDISPRAW"
+  format_version: uint16
+  created_unix_ns: uint64
+  reserved...
+
+Repeated records:
+  record_type: uint8
+    1 = raw_serial_chunk
+    2 = valid_raw_frame
+    3 = bad_frame_fragment
+  timestamp_ns: uint64
+  length: uint32
+  payload: bytes
+```
+
+如果最终选择只记录完整 raw frame，也必须在 `docs/data_format.md` 中说明限制。
+
+#### `csv_writer.py`
+
+写入 `decoded.csv`。
+
+要求：
+
+* 只包含解码后的可读数据；
+* 包含相对时间；
+* 包含帧序号或采样序号；
+* 适合 Excel / Origin / MATLAB 使用；
+* 使用标准 csv writer 或批量文本写入；
+* 不要每帧 pandas append。
+
+#### `metadata.py`
+
+生成 metadata。
+
+---
+
+### E.4 `pydisplay.replay`
+
+负责回放模式。
+
+#### `raw_bin_reader.py`
+
+读取 `raw_frames.bin`，并按时间戳模拟数据流。
+
+#### `decoded_csv_reader.py`
+
+读取 `decoded.csv`，直接生成 `DecodedSample`。
+
+#### `replay_worker.py`
 
 回放线程。
 
-职责：
+要求：
 
-1. 从 `raw_frames.bin` 回放；
-2. 从 `decoded.csv` 回放；
-3. 模拟 100 Hz 节奏；
-4. 支持暂停；
-5. 支持继续；
-6. 支持倍速；
-7. 支持慢速；
-8. 向 GUI 发送与实时模式一致的数据结构。
+* 支持暂停；
+* 支持继续；
+* 支持倍速；
+* 支持慢速；
+* 尽量模拟 100 Hz；
+* 回放不能阻塞 GUI；
+* 回放数据应能进入同一套 GUI 绘图和 health monitor。
 
-### E.13 `gui.main_window`
+---
 
-主窗口。
+### E.5 `pydisplay.gui`
 
-包含区域：
+负责 PySide6 GUI。
 
-1. 串口连接区；
-2. 下位机控制区；
-3. 记录设置区；
-4. 链路健康监控区；
-5. 实时绘图区；
-6. 回放区。
+#### `main_window.py`
 
-### E.14 `gui.widgets.serial_panel`
+主窗口，组合所有区域。
 
-负责串口 UI：
+界面分区：
 
-1. 串口扫描；
-2. 选择端口；
-3. 选择波特率；
-4. 打开；
-5. 关闭；
-6. 重连；
-7. 状态提示。
+```text
+串口连接区
+下位机控制区
+记录设置区
+链路健康监控区
+实时绘图区
+回放区
+```
 
-### E.15 `gui.widgets.control_panel`
+#### `widgets/serial_panel.py`
 
-负责控制 UI：
+串口选择与连接控件。
 
-1. PPG mode；
-2. LED 亮度；
-3. PPG 量程；
-4. 脉宽；
-5. IMU 量程；
-6. 发送按钮；
-7. 参数合法性提示。
+#### `widgets/control_panel.py`
 
-### E.16 `gui.widgets.record_panel`
+控制参数输入和发送控件。
 
-负责记录 UI：
+至少包含：
 
-1. 记录路径；
-2. 文件名前缀；
-3. 开始记录；
-4. 停止记录；
-5. 记录状态；
-6. 记录队列长度提示。
+```text
+PPG mode
+LED 亮度
+PPG 量程
+脉宽
+IMU 量程
+k 值
+```
 
-### E.17 `gui.widgets.health_panel`
+k 值用于 UD 解算。
 
-负责链路健康显示。
+#### `widgets/recorder_panel.py`
+
+记录路径、文件名、开始记录、停止记录。
+
+#### `widgets/health_panel.py`
 
 显示：
 
-1. bytes/s；
-2. 有效帧率；
-3. 坏帧率；
-4. bad frame count；
-5. bad frame ratio；
-6. resync 次数；
-7. 串口缓冲区字节数；
-8. 解析缓冲字节数；
-9. 绘图 FPS；
-10. 记录队列长度；
-11. 串口连接状态；
-12. 记录状态。
+```text
+bytes/s
+有效帧率
+坏帧率
+resync 次数
+串口缓冲区字节数
+解析缓冲字节数
+绘图 FPS
+记录队列长度
+串口连接状态
+记录状态
+```
 
-状态栏刷新频率 1–5 Hz，不允许每帧更新 QLabel。
+刷新频率 1–5 Hz，不要每帧更新 QLabel。
 
-### E.18 `gui.widgets.plot_panel`
+#### `widgets/replay_panel.py`
 
-负责实时绘图。
+回放文件选择、开始、暂停、继续、倍速、慢速。
 
-包含：
+#### `widgets/plot_panel.py`
 
-1. 三色 PPG；
-2. 三轴加速度；
-3. 三轴陀螺仪；
-4. 4 路 Uh；
-5. 4 路 Uc；
-6. 2 路 UD。
+PyQtGraph 绘图区域。
+
+绘制：
+
+```text
+3 色 PPG
+3 轴加速度计
+3 轴陀螺仪
+4 路 Uh
+4 路 Uc
+2 路 UD
+```
 
 要求：
 
-1. 最近 N 秒窗口；
-2. 默认绘图刷新率 20 Hz；
-3. 支持 10–30 FPS；
-4. 支持暂停绘图但继续记录；
-5. 支持隐藏部分曲线；
-6. 坐标轴、单位、标题清楚；
-7. 中文不乱码。
+* 每个曲线窗口只显示最近 N 秒；
+* 默认绘图刷新率 20 Hz；
+* 可配置 10–30 FPS；
+* 支持暂停绘图但继续记录；
+* 支持隐藏部分曲线；
+* 坐标轴、单位、标题清楚；
+* 中文标签不乱码。
 
-### E.19 `services.health_monitor`
+---
 
-聚合健康状态，不直接操作 UI。
+### E.6 `pydisplay.services`
 
-### E.20 `services.data_router`
+负责数据流编排和健康监控。
 
-连接串口、parser、decoder、recorder、GUI 绘图和健康监控。
+#### `pipeline.py`
 
-### E.21 `simulator.fake_device`
+把串口、parser、decoder、recorder、GUI 绘图、health monitor 串起来。
 
-生成模拟下位机数据。
+#### `health_monitor.py`
 
-注意：
+统计链路状态和性能指标：
 
-* 只有在协议已经确认后，模拟器才能生成真实格式的 fake frame。
-* 如果协议未确认，可以只生成 decoded sample 用于测试 GUI 绘图。
-* 虚拟串口失败时不要阻塞主项目，可以跳过，采用文件回放或内存 fake source 测试 UI。
+```text
+bytes/s
+valid_frame_rate
+bad_frame_rate
+bad_frame_count
+bad_frame_ratio
+resync_count
+serial_buffer_bytes
+parser_buffer_bytes
+plot_fps
+record_queue_size
+serial_state
+recording_state
+```
+
+#### `data_bus.py`
+
+封装 queue 或 Qt signal 传输方式。
 
 ---
 
 ## F. 推荐的数据流架构
 
-### F.1 实时采集模式
+### F.1 实时串口模式
 
 推荐数据流：
 
 ```text
-HJ380 Serial Port
-    ↓ bytes
-SerialReader Thread
-    ↓ bytes chunks
-Parser
-    ↓ RawFrame
+HJ380 串口
+  ↓
+SerialReader 线程
+  ↓ raw bytes chunks
+Parser 状态机
+  ↓ ParsedFrame
 Decoder
-    ↓ DecodedSample
-DataRouter
-    ├── RecorderWorker Queue
-    │       ├── raw_frames.bin
-    │       ├── decoded.csv
-    │       └── metadata.json
-    ├── PlotBuffer
-    │       └── GUI Timer 10–30 FPS refresh
-    └── HealthMonitor
-            └── GUI Timer 1–5 Hz refresh
+  ↓ DecodedSample
+  ├── RecorderWorker queue
+  ├── GUI Plot RingBuffer
+  └── HealthMonitor
 ```
 
-### F.2 回放模式
-
-```text
-raw_frames.bin / decoded.csv
-    ↓
-ReplayWorker Thread
-    ↓ RawFrame or DecodedSample
-DataRouter
-    ├── PlotBuffer
-    ├── optional Decoder
-    └── HealthMonitor
-```
-
-### F.3 控制命令数据流
+### F.2 控制命令流
 
 ```text
 GUI ControlPanel
-    ↓ validated ControlSettings
-CommandBuilder
-    ↓ command bytes
-SerialWriter / SerialReader owning serial object
-    ↓
-HJ380 Serial Port
-    ↓
-HJ131 → STM32G474
+  ↓ 参数合法性检查
+protocol.commands
+  ↓ CommandFrame bytes
+SerialWriter
+  ↓
+HJ380 串口
+  ↓
+HJ131 / STM32 下位机
+```
+
+### F.3 记录数据流
+
+```text
+Raw serial chunk / raw frame
+  ↓
+RecorderWorker raw queue
+  ↓
+raw_frames.bin
+
+DecodedSample
+  ↓
+RecorderWorker decoded queue
+  ↓
+decoded.csv
+
+Session metadata
+  ↓
+metadata.json
+```
+
+### F.4 回放数据流
+
+raw bin 回放：
+
+```text
+raw_frames.bin
+  ↓
+ReplayWorker
+  ↓ raw bytes / raw frames
+Parser
+  ↓
+Decoder
+  ↓
+GUI Plot + HealthMonitor
+```
+
+decoded csv 回放：
+
+```text
+decoded.csv
+  ↓
+ReplayWorker
+  ↓ DecodedSample
+  ↓
+GUI Plot + HealthMonitor
 ```
 
 ---
@@ -778,432 +950,397 @@ HJ131 → STM32G474
 
 Parser 必须实现异常恢复状态机。
 
-### G.1 状态
+### G.1 状态设计
 
-至少包含：
+推荐状态：
 
-1. `FIND_HEADER_1`
-2. `FIND_HEADER_2`
-3. `READ_BODY`
-4. `READ_TAIL`
-5. `VERIFY_CHECKSUM`
-6. `EMIT_FRAME`
-7. `RESYNC`
+```text
+FIND_HEADER
+READ_BODY
+READ_CHECKSUM_OR_TAIL
+VERIFY
+EMIT_FRAME
+RESYNC
+```
 
-如果协议中长度字段明确，也可以使用：
+如果固件协议更适合其他状态划分，可以调整，但必须覆盖以下逻辑：
 
-1. `FIND_HEADER`
-2. `READ_LENGTH`
-3. `READ_PAYLOAD`
-4. `READ_CHECKSUM`
-5. `READ_TAIL`
-6. `VERIFY`
-7. `RESYNC`
+1. 正常同步；
+2. 找帧头；
+3. 收帧体；
+4. 校验；
+5. 找帧尾；
+6. resync；
+7. 坏帧统计。
 
-### G.2 统计指标
+### G.2 状态机基本要求
 
-Parser 必须维护：
+1. 输入是连续 bytes，不假设一次 read 正好是一帧。
+2. 必须支持半包。
+3. 必须支持粘包。
+4. 必须支持帧头前噪声。
+5. 必须支持帧内损坏。
+6. 坏帧只统计，不丢弃整段数据流。
+7. resync 应尽量从已有 buffer 中寻找下一个 `0xAA 0xBB`。
+8. 需要统计：
 
-1. 总输入字节数；
-2. 有效帧数量；
-3. 坏帧数量；
-4. 坏帧比例；
-5. resync 次数；
-6. 当前解析缓冲区字节数；
-7. 校验失败次数；
-8. 帧尾错误次数；
-9. 长度错误次数；
-10. 不完整帧次数。
+   * 总帧数；
+   * 有效帧数；
+   * 坏帧数；
+   * 坏帧比例；
+   * resync 次数；
+   * 当前 parser buffer 字节数。
 
-### G.3 坏帧处理原则
+### G.3 已知帧头帧尾
 
-坏帧只统计，不得清空整段数据流。
+用户已确认：
 
-要求：
+```text
+FRAME_HEADER = b"\xAA\xBB"
+FRAME_TAIL = b"\xCC"
+```
 
-1. 坏帧后从已有 buffer 内寻找下一个 `0xAA 0xBB`；
-2. 支持粘包；
-3. 支持半帧；
-4. 支持乱字节；
-5. 支持帧中出现类似帧头时的恢复；
-6. 不能因为一个坏帧导致后续所有数据丢失。
+但禁止假设固定帧长、checksum 规则和 payload 字段。
 
-### G.4 单元测试场景
+### G.4 单元测试要求
 
-必须测试：
+至少覆盖：
 
 1. 单帧完整输入；
-2. 多帧粘包；
+2. 一次输入多个完整帧；
 3. 一帧拆成多次输入；
-4. 前面有垃圾字节；
-5. 中间有坏帧；
-6. 校验错误；
-7. 帧尾错误；
-8. 长度错误；
-9. 坏帧后能恢复；
-10. 长时间随机噪声后能恢复；
-11. 输入空 bytes 不崩溃。
+4. 帧头前有噪声；
+5. 坏 checksum；
+6. 错误帧尾；
+7. 中间坏帧后恢复；
+8. parser buffer 不无限增长。
 
 ---
 
 ## H. GUI 线程、串口线程、记录线程的并发设计
 
-### H.1 总原则
+### H.1 GUI 主线程
 
-GUI 主线程只允许做：
+GUI 主线程只负责：
 
-1. UI 响应；
-2. 图表刷新；
-3. 状态面板刷新；
-4. 用户操作事件分发。
+1. 用户交互；
+2. 状态显示；
+3. 定时刷新图表；
+4. 向 worker 发出控制信号。
 
-GUI 主线程禁止做：
+GUI 主线程禁止：
 
 1. 阻塞串口读取；
 2. 大量协议解析；
 3. 文件写入；
-4. pandas append；
-5. 每帧 QLabel 更新；
-6. 长时间循环；
-7. sleep 阻塞。
+4. 每帧刷新 QLabel；
+5. 每帧重建 PlotDataItem；
+6. 每帧 pandas append。
 
-### H.2 串口读取线程
+### H.2 SerialReader 线程
 
-`SerialReader` 独立线程，负责：
+负责：
 
-1. 串口打开；
-2. 串口读取；
-3. 串口异常捕获；
-4. 断连检测；
-5. 重连支持；
-6. bytes/s 统计。
+1. 串口阻塞或半阻塞读取；
+2. 捕获串口异常；
+3. 产出 raw bytes；
+4. 更新串口状态。
 
-串口异常不得让 GUI 卡死。
-
-### H.3 Parser / Decoder 执行位置
-
-可以有两种设计：
-
-#### 方案 1：SerialReader 线程内解析
-
-适用于协议解析轻量的情况。
+串口异常包括：
 
 ```text
-SerialReader Thread:
-  read bytes → parser.feed → decoder.decode → emit DecodedSample
+端口占用
+端口不存在
+HJ380 被拔掉
+蓝牙断连
+读取超时
+权限错误
+串口写入失败
 ```
 
-#### 方案 2：独立 ParserWorker
+异常必须传给 GUI 状态区，不能导致 GUI 卡死。
 
-适用于后续协议复杂或高吞吐情况。
+### H.3 Parser / Decoder
+
+可在 SerialReader 线程中轻量执行，也可放入独立 worker。
+
+如果解析负载较低，可以：
 
 ```text
-SerialReader Thread → bytes queue → ParserWorker → DecodedSample
+SerialReader -> Parser -> Decoder -> queues/signals
 ```
 
-初期可采用方案 1，但代码结构要允许后续拆分。
+如果解析负载较高，应拆成：
 
-### H.4 RecorderWorker
+```text
+SerialReader -> raw queue -> ParserWorker -> decoded queue
+```
 
-记录必须在独立线程中完成。
+无论采用哪种方式，都必须保证 GUI 主线程不直接处理连续 byte stream。
+
+### H.4 RecorderWorker 线程
+
+负责批量写入：
+
+```text
+raw_frames.bin
+decoded.csv
+metadata.json
+```
 
 要求：
 
-1. 使用 queue 接收数据；
+1. 使用 queue；
 2. 批量写入；
 3. 定期 flush；
-4. 停止时 flush；
-5. 不阻塞 GUI；
-6. 队列过长时发出健康警告。
+4. 停止记录时 final flush；
+5. 队列过长时 health panel 显示；
+6. 写入异常要通知 GUI；
+7. 停止记录后 metadata 写入记录结束时间。
 
-### H.5 GUI 绘图刷新
+### H.5 ReplayWorker 线程
 
-GUI 使用 QTimer 刷新图表。
-
-推荐：
-
-```text
-plot_timer interval = 50 ms  # 20 Hz
-health_timer interval = 500 ms or 1000 ms
-```
-
-每个刷新周期从 ring buffer 取最近 N 秒数据，而不是每帧立即重画。
+负责回放节奏控制，不阻塞 GUI。
 
 ---
 
 ## I. 数据记录格式设计
 
-每次记录建议生成一个独立目录：
+### I.1 记录目录
+
+每次记录建议生成一个 session 目录：
 
 ```text
-recordings/
-  20260510_153012_experiment_name/
+records/
+  20260510_013000_experiment_name/
     raw_frames.bin
     decoded.csv
     metadata.json
 ```
 
-### I.1 `raw_frames.bin`
+如果用户指定完整路径和文件名，则尊重用户设置。
 
-必须记录。
+### I.2 `raw_frames.bin`
 
-用途：
+必须记录，便于复盘协议问题。
 
-1. 复盘协议问题；
-2. 回放原始数据；
-3. 验证 parser；
-4. 排查坏帧、断连、粘包、半帧问题。
+推荐记录内容：
 
-建议格式：
+1. 文件头；
+2. 格式版本；
+3. 创建时间；
+4. 原始串口 chunk 或原始帧；
+5. 每条记录的 PC 时间戳；
+6. record type；
+7. payload length；
+8. payload bytes。
+
+推荐二进制布局：
 
 ```text
-Magic:       8 bytes, e.g. PYDISP01
-Version:     uint16
-Record item repeated:
-  host_timestamp_ns: uint64
-  frame_len:         uint32
-  frame_bytes:       uint8[frame_len]
+FileHeader:
+  magic: 9 bytes = "PYDISPRAW"
+  format_version: uint16
+  created_unix_ns: uint64
+  header_length: uint32
+  reserved: bytes
+
+Record:
+  record_type: uint8
+  timestamp_ns: uint64
+  payload_length: uint32
+  payload: bytes[payload_length]
 ```
 
-注意：
+`record_type` 推荐：
 
-* `frame_bytes` 应包含完整原始帧，包括帧头和帧尾。
-* 如果 parser 已经切出 RawFrame，则记录 RawFrame。
-* 如果未来要记录未解析 bytes chunk，可另行增加 `raw_stream.bin`，但当前必须保证 `raw_frames.bin` 可回放。
+```text
+1 = raw_serial_chunk
+2 = valid_raw_frame
+3 = bad_frame_fragment
+```
 
-### I.2 `decoded.csv`
+如果实现时简化，必须在 `docs/data_format.md` 中说明实际格式。
 
-面向 Excel / Origin / MATLAB。
+### I.3 `decoded.csv`
 
-必须只包含解码后可读字段和相对时间。
+必须包含解码后的可读数据和相对时间。
 
 推荐字段：
 
 ```text
-sample_index
-frame_seq
-host_time_ns
 relative_time_s
-device_time
-ppg_g
-ppg_r
-ppg_ir
-acc_x
-acc_y
-acc_z
-gyro_x
-gyro_y
-gyro_z
-uh_1
-uh_2
-uh_3
-uh_4
-uc_1
-uc_2
-uc_3
-uc_4
-ud_1
-ud_2
-k_value
+timestamp_pc_ns
+frame_seq
+sample_seq
+PPG_G
+PPG_R
+PPG_IR
+ACC_X
+ACC_Y
+ACC_Z
+GYRO_X
+GYRO_Y
+GYRO_Z
+Uh1
+Uh2
+Uh3
+Uh4
+Uc1
+Uc2
+Uc3
+Uc4
+UD1
+UD2
+parser_valid
+source
 ```
 
-如果协议确认有更多字段，可以追加。
+如果固件中字段名不同，以协议分析报告为准。
 
-### I.3 写入策略
+### I.4 写入频率
 
-禁止：
+要求：
 
-```python
-df = df.append(...)
-df.to_csv(..., mode="a")  # 每帧调用
-file.flush()              # 每帧调用
+```text
+100 Hz 全量记录
 ```
 
-推荐：
+不得为了绘图降采样而减少记录数据。
 
-1. `csv.writer` 批量写；
-2. 内存 list 缓冲若干行；
-3. 定期写入；
-4. 停止记录时 flush；
-5. raw bin 使用 buffered binary writer。
-
-### I.4 记录频率
-
-100 Hz 全量记录，不因绘图暂停而停止。
+绘图可以降帧，记录不能降帧。
 
 ---
 
 ## J. metadata.json 字段设计
 
-`metadata.json` 至少包含：
+`metadata.json` 至少包含以下字段：
 
 ```json
 {
   "software": {
     "name": "Pydisplay",
-    "version": "0.1.0",
-    "python_version": "",
-    "platform": ""
+    "version": "0.1.0"
   },
   "firmware": {
-    "repository": "https://github.com/Scp-918/PulseTIMR2/tree/Single",
+    "repo": "https://github.com/Scp-918/PulseTIMR2/tree/Single",
+    "commit": null,
     "branch": "Single",
-    "commit": "",
-    "commit_available": false
+    "protocol_version": null
+  },
+  "session": {
+    "record_start_time": null,
+    "record_end_time": null,
+    "record_path": null
+  },
+  "serial": {
+    "port": null,
+    "baudrate": null,
+    "device": "HJ380"
+  },
+  "bluetooth": {
+    "tx_module": "HJ131",
+    "rx_module": "HJ380"
+  },
+  "decode": {
+    "k": null,
+    "ud_formula": "UD = (Uh - Uc) / (k - Uc)"
+  },
+  "control_parameters": {
+    "ppg_mode": null,
+    "led_brightness": null,
+    "ppg_range": null,
+    "pulse_width": null,
+    "imu_range": null
   },
   "protocol": {
-    "version": "",
     "frame_header": "AA BB",
     "frame_tail": "CC",
     "frame_length": null,
-    "endianness": "",
-    "checksum": "",
-    "source_files": []
-  },
-  "serial": {
-    "port": "",
-    "baudrate": 0,
-    "bytesize": "",
-    "parity": "",
-    "stopbits": "",
-    "timeout": ""
-  },
-  "control_settings": {
-    "ppg_mode": "",
-    "led_brightness": "",
-    "ppg_range": "",
-    "pulse_width": "",
-    "imu_range": ""
-  },
-  "decode_settings": {
-    "k_value": 0.0,
-    "ud_formula": "UD = (Uh - Uc) / (k - Uc)"
-  },
-  "recording": {
-    "recording_name": "",
-    "recording_dir": "",
-    "start_time_local": "",
-    "end_time_local": "",
-    "start_time_utc": "",
-    "end_time_utc": "",
-    "sample_rate_target_hz": 100,
-    "raw_file": "raw_frames.bin",
-    "decoded_file": "decoded.csv"
+    "payload_length": null,
+    "byte_order": null,
+    "checksum": null,
+    "field_layout": []
   },
   "csv_fields": {
-    "sample_index": "zero-based sample counter generated by host if firmware sequence is unavailable",
-    "frame_seq": "firmware frame sequence if available",
-    "host_time_ns": "monotonic host timestamp in ns",
-    "relative_time_s": "seconds since recording start",
-    "device_time": "device timestamp if available",
-    "ppg_g": "decoded green PPG",
-    "ppg_r": "decoded red PPG",
-    "ppg_ir": "decoded infrared PPG",
-    "acc_x": "accelerometer x",
-    "acc_y": "accelerometer y",
-    "acc_z": "accelerometer z",
-    "gyro_x": "gyroscope x",
-    "gyro_y": "gyroscope y",
-    "gyro_z": "gyroscope z",
-    "uh_1": "sensor high-level voltage channel 1",
-    "uh_2": "sensor high-level voltage channel 2",
-    "uh_3": "sensor high-level voltage channel 3",
-    "uh_4": "sensor high-level voltage channel 4",
-    "uc_1": "sensor low-level voltage channel 1",
-    "uc_2": "sensor low-level voltage channel 2",
-    "uc_3": "sensor low-level voltage channel 3",
-    "uc_4": "sensor low-level voltage channel 4",
-    "ud_1": "decoded differential signal channel 1",
-    "ud_2": "decoded differential signal channel 2",
-    "k_value": "k value used for UD calculation"
-  },
-  "runtime_stats": {
-    "total_frames": 0,
-    "valid_frames": 0,
-    "bad_frames": 0,
-    "bad_frame_ratio": 0.0,
-    "resync_count": 0,
-    "dropped_record_samples": 0
+    "relative_time_s": "Relative time from recording start, seconds",
+    "timestamp_pc_ns": "PC monotonic or wall-clock timestamp in ns",
+    "frame_seq": "Frame sequence if available",
+    "sample_seq": "Sample sequence if available",
+    "PPG_G": "Green PPG decoded value",
+    "PPG_R": "Red PPG decoded value",
+    "PPG_IR": "Infrared PPG decoded value",
+    "ACC_X": "Acceleration X",
+    "ACC_Y": "Acceleration Y",
+    "ACC_Z": "Acceleration Z",
+    "GYRO_X": "Gyroscope X",
+    "GYRO_Y": "Gyroscope Y",
+    "GYRO_Z": "Gyroscope Z",
+    "Uh1": "Sensor high-level voltage channel 1",
+    "Uh2": "Sensor high-level voltage channel 2",
+    "Uh3": "Sensor high-level voltage channel 3",
+    "Uh4": "Sensor high-level voltage channel 4",
+    "Uc1": "Sensor low-level voltage channel 1",
+    "Uc2": "Sensor low-level voltage channel 2",
+    "Uc3": "Sensor low-level voltage channel 3",
+    "Uc4": "Sensor low-level voltage channel 4",
+    "UD1": "Decoded UD signal channel 1",
+    "UD2": "Decoded UD signal channel 2"
   }
 }
 ```
 
-如果固件 commit 可以通过 git 获取，应写入 commit hash；如果不可获取，写：
-
-```json
-"commit_available": false
-```
+实际字段需要根据协议分析结果修正。
 
 ---
 
 ## K. 回放模式设计
 
-### K.1 支持来源
+### K.1 raw bin 回放
 
-回放模式支持：
-
-1. `raw_frames.bin`
-2. `decoded.csv`
-
-### K.2 raw 回放
-
-raw 回放路径：
+从 `raw_frames.bin` 读取原始数据，尽量复用真实数据链路：
 
 ```text
-raw_frames.bin
-    ↓
-RawFrameReader
-    ↓ RawFrame
-Parser optional / direct RawFrame
-    ↓
-Decoder
-    ↓ DecodedSample
-GUI PlotBuffer
+raw_frames.bin -> ReplayWorker -> Parser -> Decoder -> GUI/Recorder/Health
 ```
 
-如果 `raw_frames.bin` 中已经保存完整 RawFrame，可以直接送 Decoder；如果未来保存 raw stream，则必须重新走 Parser。
+要求：
 
-### K.3 decoded.csv 回放
+1. 支持原始串口 chunk；
+2. 支持有效 raw frame；
+3. 支持按原始时间戳节奏回放；
+4. 支持 0.25x、0.5x、1x、2x、5x；
+5. 支持暂停 / 继续；
+6. 支持停止；
+7. 支持回放过程中观察 parser stats。
 
-decoded 回放路径：
+### K.2 decoded csv 回放
+
+从 `decoded.csv` 读取已解码数据：
 
 ```text
-decoded.csv
-    ↓
-DecodedCsvReader
-    ↓ DecodedSample
-GUI PlotBuffer
+decoded.csv -> ReplayWorker -> DecodedSample -> GUI/Health
 ```
 
-### K.4 节奏控制
+要求：
 
-默认模拟 100 Hz：
+1. 不经过 parser；
+2. 用于 UI 和算法调试；
+3. 支持 100 Hz 模拟节奏；
+4. 支持倍速和慢速。
+
+### K.3 回放状态
+
+GUI 需要显示：
 
 ```text
-sample interval = 10 ms
+回放文件
+回放类型
+回放进度
+回放速度
+暂停/运行状态
+当前样本时间
 ```
-
-支持：
-
-1. 暂停；
-2. 继续；
-3. 0.25x；
-4. 0.5x；
-5. 1x；
-6. 2x；
-7. 5x；
-8. 单步可选。
-
-### K.5 回放期间的 GUI 行为
-
-回放期间：
-
-1. 不需要串口连接；
-2. 可以测试绘图；
-3. 可以测试健康面板；
-4. 可以测试算法；
-5. 可以暂停绘图；
-6. 可以继续记录回放输出为新文件，可选。
 
 ---
 
@@ -1214,622 +1351,560 @@ sample interval = 10 ms
 要求：
 
 ```text
-串口采集：按实际速率，目标 100 Hz 数据帧
-数据记录：100 Hz 全量
-绘图刷新：默认 20 Hz，可选 10–30 Hz
+数据记录：100 Hz 全量记录
+绘图刷新：默认 20 Hz，可配置 10–30 Hz
 状态刷新：1–5 Hz
 ```
 
-### L.2 GUI 防卡顿要求
+### L.2 绘图性能
 
-禁止：
-
-1. GUI 主线程读串口；
-2. GUI 主线程写 CSV；
-3. GUI 主线程写 raw bin；
-4. GUI 主线程每帧更新 QLabel；
-5. GUI 主线程每帧新建大量 PlotDataItem；
-6. 每帧 pandas append；
-7. 每帧重建 DataFrame；
-8. 每帧 flush；
-9. 未限制长度的绘图数组无限增长。
-
-必须：
+PyQtGraph 绘图要求：
 
 1. 使用 ring buffer；
-2. 使用 QTimer 控制绘图刷新；
-3. 使用批量写文件；
-4. 使用线程或 Qt worker 解耦 IO；
-5. 支持隐藏曲线；
-6. 支持暂停绘图但继续记录；
-7. 控制记录队列长度；
-8. 状态面板低频刷新。
+2. 不要每次重建曲线；
+3. 初始化时创建 PlotDataItem；
+4. 刷新时只调用 `setData()`；
+5. 只显示最近 N 秒；
+6. 支持隐藏曲线；
+7. 支持暂停绘图；
+8. 暂停绘图时仍继续记录。
 
-### L.3 推荐 ring buffer
+### L.3 队列控制
 
-每类曲线只保留最近 N 秒。
-
-例如：
-
-```text
-sample_rate = 100 Hz
-window_seconds = 30
-max_points = 3000
-```
-
-### L.4 绘图优化
+需要避免内存无限增长。
 
 建议：
 
-1. 创建曲线一次，后续只调用 `setData`；
-2. 不在刷新周期内频繁创建 widget；
-3. 对不可见曲线跳过 setData；
-4. 使用 PyQtGraph 的 downsampling 或 clipToView；
-5. 对大窗口数据可做显示降采样，但记录必须全量。
+1. 记录队列设置合理上限；
+2. GUI 绘图只保留最近窗口；
+3. health panel 显示队列长度；
+4. 队列积压时提示用户；
+5. 不要静默丢弃记录数据；
+6. 如必须丢弃绘图数据，只能丢弃 GUI 显示层数据，不得丢弃记录数据。
+
+### L.4 QLabel 更新限制
+
+禁止每帧更新 QLabel。
+
+状态栏使用 QTimer 以 1–5 Hz 刷新。
 
 ---
 
 ## M. 异常处理要求
 
+必须处理并在 GUI 中明确提示：
+
 ### M.1 串口异常
 
-必须处理：
-
-1. 串口不存在；
-2. 串口被占用；
-3. 打开失败；
-4. HJ380 拔掉；
-5. 蓝牙断连；
-6. read timeout；
-7. 写命令失败；
-8. 重连失败；
-9. 关闭时线程未退出。
-
-GUI 必须明确提示状态，不得卡死。
+```text
+串口打开失败
+串口被占用
+串口不存在
+HJ380 被拔出
+蓝牙断连
+读取超时
+写入失败
+关闭串口失败
+重连失败
+```
 
 ### M.2 协议异常
 
-必须处理：
-
-1. 错误帧头；
-2. 错误帧尾；
-3. 长度错误；
-4. 校验错误；
-5. payload 不完整；
-6. 字段解析失败；
-7. 缩放异常；
-8. UD 分母接近 0；
-9. 数值溢出；
-10. 未知命令 ACK。
+```text
+找不到帧头
+帧尾错误
+帧长度错误
+checksum / CRC 错误
+payload 长度不符
+字段解码失败
+resync 频繁
+坏帧比例过高
+```
 
 ### M.3 记录异常
 
-必须处理：
+```text
+路径不存在
+没有写权限
+磁盘空间不足
+raw bin 写入失败
+csv 写入失败
+metadata 写入失败
+记录队列积压
+停止记录 flush 失败
+```
 
-1. 路径不存在；
-2. 无写权限；
-3. 磁盘满；
-4. 文件被占用；
-5. 记录队列过长；
-6. 停止记录时 flush 失败；
-7. metadata 写入失败。
+### M.4 GUI 异常
 
-### M.4 回放异常
+```text
+非法 k 值
+非法控制参数
+发送命令时串口未连接
+回放文件不存在
+回放文件格式错误
+decoded.csv 字段缺失
+```
 
-必须处理：
+异常处理原则：
 
-1. 文件不存在；
-2. raw magic 不匹配；
-3. raw version 不匹配；
-4. raw item 不完整；
-5. csv 字段缺失；
-6. csv 数值解析失败；
-7. 回放中暂停 / 停止。
+1. GUI 不能崩溃；
+2. 状态区必须显示明确原因；
+3. 日志必须记录 traceback；
+4. 对用户可恢复的异常应提供重试入口；
+5. 不要吞掉异常。
 
 ---
 
 ## N. 代码风格要求
 
-### N.1 基本风格
+### N.1 总体风格
 
-必须：
+1. Python 代码使用英文命名；
+2. GUI 文案使用中文；
+3. 关键逻辑写中文注释；
+4. 协议字段、单位、缩放系数必须写清楚来源；
+5. 不要写巨型单文件；
+6. 不要把 GUI、串口、parser、recorder 全塞到一个文件里。
 
-1. 类型标注；
-2. dataclass 表达数据结构；
-3. 小函数；
-4. 模块边界清晰；
-5. 中文 UI 文案；
-6. 英文代码命名；
-7. 关键逻辑中文注释；
-8. 协议相关代码注释必须引用来源文件；
-9. 不在 GUI 类里堆积所有逻辑；
-10. 不使用全局可变状态传递核心数据。
+### N.2 类型与结构
 
-### N.2 工具
+推荐：
 
-推荐配置：
-
-```bash
-ruff check .
-black .
-isort .
-mypy pydisplay
-pytest
+```text
+dataclasses
+type hints
+Enum
+Queue
+QObject + Signal/Slot
+QThread or Python threading
 ```
 
-### N.3 Python 版本
+### N.3 日志
 
-面向 Python 3.11。
+需要使用 logging。
 
-不要使用仅 Python 3.12+ 才支持的语法。
-
-### N.4 日志
-
-必须有日志：
+建议日志文件：
 
 ```text
 logs/pydisplay.log
 ```
 
-日志内容包括：
+日志内容至少包括：
 
-1. 程序启动；
-2. 串口打开 / 关闭；
-3. 串口异常；
-4. 协议错误摘要；
-5. 记录开始 / 停止；
-6. 回放开始 / 停止；
-7. 控制命令发送；
-8. 未处理异常。
+```text
+串口连接状态
+协议解析异常
+坏帧统计
+记录开始/停止
+命令发送
+回放状态
+未捕获异常
+```
+
+### N.4 文档
+
+必须维护：
+
+```text
+docs/protocol_analysis.md
+docs/data_format.md
+README.md
+```
 
 ---
 
 ## O. 阶段性开发步骤
 
-### O.1 阶段 0：环境检查
+### 阶段 0：协议分析
 
-检查：
+任务：
+
+1. 搜索固件源码；
+2. 搜索 sensorlist；
+3. 确认帧结构；
+4. 确认控制命令；
+5. 输出 `docs/protocol_analysis.md`；
+6. 如果不完整，输出 `docs/protocol_questions.md` 并暂停。
+
+验收：
+
+```text
+docs/protocol_analysis.md 中有明确协议表格。
+没有未确认字段时，才进入 parser 实现。
+```
+
+### 阶段 1：项目骨架
+
+任务：
+
+1. 建立目录结构；
+2. 创建 `pydisplay/__main__.py`；
+3. 创建基础 logging；
+4. 创建 README；
+5. 创建空 GUI 主窗口入口。
+
+验收：
 
 ```bash
-D:\Code\anaconda24\envs\Pydisplay_env\python --version
-D:\Code\anaconda24\envs\Pydisplay_env\python -c "import PySide6, pyqtgraph, serial, numpy, pandas, scipy, psutil, yaml; print('ok')"
+python -m pydisplay
 ```
 
-如环境不可用，停止后续开发并报告。
+能打开基础窗口或打印明确启动信息。
 
-### O.2 阶段 1：初始化项目结构
+### 阶段 2：Parser / Decoder
 
-创建推荐目录结构。
+任务：
 
-添加：
+1. 实现 parser 状态机；
+2. 实现 decoder；
+3. 实现 parser stats；
+4. 实现测试。
 
-1. `README.md`
-2. `pyproject.toml`
-3. `.gitignore`
-4. `docs/architecture.md`
-5. `scripts/run_app.bat`
-6. `scripts/run_tests.bat`
+验收：
 
-完成后运行基础 import 测试，并 git commit。
-
-### O.3 阶段 2：固件协议分析
-
-克隆或检查固件仓库。
-
-搜索协议相关文件。
-
-生成：
-
-```text
-docs/protocol_analysis.md
+```bash
+pytest tests/test_protocol_parser.py tests/test_decoder.py
 ```
 
-如果协议不完整，生成：
+通过。
 
-```text
-docs/protocol_blockers.md
-```
+### 阶段 3：串口 IO
 
-然后暂停 parser 实现。
+任务：
 
-完成后 git commit。
+1. 串口列表；
+2. 打开/关闭/重连；
+3. reader worker；
+4. writer worker；
+5. 异常状态上报。
 
-### O.4 阶段 3：协议 spec / parser
+验收：
 
-只有协议清楚后才实现。
+1. 无硬件时 GUI 不崩溃；
+2. 串口占用/不存在有明确提示；
+3. 有硬件时可以接收 bytes。
 
-实现：
+### 阶段 4：记录系统
 
-1. `protocol/spec.py`
-2. `protocol/checksum.py`
-3. `protocol/parser.py`
-4. `tests/test_parser.py`
+任务：
 
-测试必须覆盖坏帧恢复。
+1. raw bin writer；
+2. decoded csv writer；
+3. metadata writer；
+4. 记录线程；
+5. 批量写入。
 
-完成后 git commit。
+验收：
 
-### O.5 阶段 4：decoder
+1. 能生成三个文件；
+2. csv 可被 Excel / MATLAB 读取；
+3. metadata 字段完整；
+4. GUI 主线程无文件写入。
 
-实现：
+### 阶段 5：GUI 控件
 
-1. `protocol/decoder.py`
-2. `core/models.py`
-3. `tests/test_decoder.py`
+任务：
 
-必须支持：
+1. 串口连接区；
+2. 控制区；
+3. 记录区；
+4. 健康监控区；
+5. 回放区；
+6. 绘图区基本布局。
 
-1. PPG_G / PPG_R / PPG_IR；
-2. acc_x/y/z；
-3. gyro_x/y/z；
-4. uh_1..uh_4；
-5. uc_1..uc_4；
-6. ud_1..ud_2；
-7. k 值输入；
-8. 分母异常保护。
+验收：
 
-完成后 git commit。
+1. 中文显示正常；
+2. 按钮语义清楚；
+3. 窗口分区合理；
+4. 不连接硬件也能打开。
 
-### O.6 阶段 5：控制命令
+### 阶段 6：实时绘图
 
-实现：
+任务：
 
-1. `protocol/command.py`
-2. `tests/test_command.py`
+1. Ring buffer；
+2. 20 Hz 刷新；
+3. 最近 N 秒窗口；
+4. 曲线隐藏；
+5. 暂停绘图但继续记录。
 
-支持：
+验收：
 
-1. PPG mode；
-2. LED 亮度；
-3. PPG 量程；
-4. 脉宽；
-5. IMU 量程。
+1. 100 Hz 数据输入时 GUI 不明显卡顿；
+2. 曲线更新正常；
+3. 隐藏曲线可降低负载。
 
-必须有合法性检查。
+### 阶段 7：回放
 
-完成后 git commit。
+任务：
 
-### O.7 阶段 6：串口线程
-
-实现：
-
-1. `io/serial_port.py`
-2. `io/serial_reader.py`
-
-支持：
-
-1. 列出串口；
-2. 打开；
-3. 关闭；
-4. 重连；
-5. 异常状态上报；
-6. 写命令；
-7. bytes/s 统计。
-
-完成后 git commit。
-
-### O.8 阶段 7：记录线程
-
-实现：
-
-1. `io/recorder.py`
-2. `io/raw_format.py`
-3. `io/csv_format.py`
-4. `io/metadata.py`
-5. `tests/test_recorder.py`
-
-必须生成：
-
-1. `raw_frames.bin`
-2. `decoded.csv`
-3. `metadata.json`
-
-完成后 git commit。
-
-### O.9 阶段 8：回放线程
-
-实现：
-
-1. `io/replay.py`
-2. `tests/test_replay.py`
-
-支持：
-
-1. raw 回放；
+1. raw bin 回放；
 2. decoded csv 回放；
-3. 暂停；
-4. 继续；
-5. 倍速；
-6. 慢速。
+3. 暂停/继续；
+4. 倍速/慢速。
 
-完成后 git commit。
+验收：
 
-### O.10 阶段 9：GUI 骨架
+1. 无硬件时可以调试 UI；
+2. 回放节奏接近真实采样；
+3. 回放状态显示正确。
 
-实现：
+### 阶段 8：集成与清理
 
-1. `gui/main_window.py`
-2. `serial_panel.py`
-3. `control_panel.py`
-4. `record_panel.py`
-5. `health_panel.py`
-6. `plot_panel.py`
-7. `replay_panel.py`
+任务：
 
-要求中文界面不乱码。
+1. 全流程测试；
+2. README 使用说明；
+3. 协议文档修订；
+4. 数据格式文档修订；
+5. 日志检查；
+6. git 保存。
 
-完成 GUI smoke test 后 git commit。
+验收：
 
-### O.11 阶段 10：实时绘图
-
-接入 PyQtGraph。
-
-绘制：
-
-1. PPG；
-2. Acc；
-3. Gyro；
-4. Uh；
-5. Uc；
-6. UD。
-
-要求：
-
-1. 默认最近 N 秒；
-2. 默认 20 Hz；
-3. 支持暂停；
-4. 支持隐藏曲线。
-
-完成后 git commit。
-
-### O.12 阶段 11：健康监控
-
-实现：
-
-1. `services/health_monitor.py`
-2. `tests/test_health_monitor.py`
-
-状态显示：
-
-1. bytes/s；
-2. 有效帧率；
-3. 坏帧率；
-4. resync；
-5. 串口缓冲；
-6. 解析缓冲；
-7. 绘图 FPS；
-8. 记录队列；
-9. 串口状态；
-10. 记录状态。
-
-完成后 git commit。
-
-### O.13 阶段 12：模拟数据源
-
-实现：
-
-1. `simulator/fake_frames.py`
-2. `simulator/fake_device.py`
-3. `scripts/run_fake_device.py`
-
-可选实现：
-
-1. 虚拟串口模拟；
-2. 若虚拟串口不可靠，则使用内存 fake source 或文件回放。
-
-不得因虚拟串口失败阻塞主项目。
-
-完成后 git commit。
-
-### O.14 阶段 13：集成测试与长时间测试
-
-至少测试：
-
-1. 打开 GUI；
-2. fake source 绘图；
-3. fake source 记录；
-4. 停止记录；
-5. 回放记录文件；
-6. 串口不存在时不崩溃；
-7. 坏帧恢复；
-8. 运行 30 分钟无明显卡顿。
-
-完成后 git commit。
-
-### O.15 阶段 14：打包准备
-
-添加：
-
-1. `scripts/package_pyinstaller.bat`
-2. 打包说明；
-3. 图标可选；
-4. README 使用说明。
-
-完成后 git commit。
+```text
+Pydisplay 项目可运行，可记录，可回放，可查看健康状态。
+```
 
 ---
 
 ## P. 验收标准
 
-### P.1 基础验收
-
-必须满足：
-
-1. `python -m pydisplay` 能启动 GUI；
-2. GUI 中文显示正常；
-3. 可以选择串口号和波特率；
-4. 串口异常不导致 GUI 卡死；
-5. 可以打开 / 关闭 / 重连；
-6. 状态区能显示串口状态；
-7. 记录路径可配置。
-
-### P.2 协议验收
-
-必须满足：
-
-1. 协议来自固件源码或文档；
-2. `docs/protocol_analysis.md` 完整；
-3. Parser 单元测试通过；
-4. 坏帧不导致数据流整体丢失；
-5. bad frame count / ratio / resync count 正常更新。
-
-### P.3 解码验收
-
-必须满足：
-
-1. PPG 三色数据正确解码；
-2. 加速度三轴正确解码；
-3. 陀螺仪三轴正确解码；
-4. 4 路 Uh 正确解码；
-5. 4 路 Uc 正确解码；
-6. 2 路 UD 正确计算；
-7. k 值可从 GUI 输入并影响后续解算；
-8. 分母异常有保护。
-
-### P.4 绘图验收
-
-必须满足：
-
-1. PPG 图正常；
-2. Acc 图正常；
-3. Gyro 图正常；
-4. Uh 图正常；
-5. Uc 图正常；
-6. UD 图正常；
-7. 最近 N 秒窗口正常；
-8. 暂停绘图时记录继续；
-9. 隐藏曲线后负载下降；
-10. 默认刷新 20 Hz 左右。
-
-### P.5 记录验收
-
-必须满足：
-
-1. 开始记录后生成独立目录；
-2. 生成 `raw_frames.bin`；
-3. 生成 `decoded.csv`；
-4. 生成 `metadata.json`；
-5. 100 Hz 全量记录；
-6. GUI 主线程不写文件；
-7. 停止记录后文件完整；
-8. metadata 有开始时间和结束时间；
-9. decoded.csv 可被 Excel / Origin / MATLAB 读取。
-
-### P.6 回放验收
-
-必须满足：
-
-1. raw_frames.bin 可回放；
-2. decoded.csv 可回放；
-3. 回放节奏接近 100 Hz；
-4. 支持暂停 / 继续；
-5. 支持倍速 / 慢速；
-6. 无硬件时可测试 UI 和绘图。
-
-### P.7 性能验收
-
-必须满足：
-
-1. 100 Hz 记录不丢样或有明确丢样统计；
-2. GUI 长时间运行不卡死；
-3. 状态栏不每帧刷新；
-4. 绘图数组不无限增长；
-5. 记录队列长度可监控；
-6. 串口断开后 GUI 仍可操作。
-
-### P.8 测试验收
-
-必须通过：
+### P.1 基础运行
 
 ```bash
-ruff check .
-black --check .
-isort --check-only .
-pytest
+conda activate Pydisplay_env
+cd D:\Desktop\STM32G474\Pydisplay
+python -m pydisplay
 ```
 
-`mypy` 尽量通过，若存在 PySide6 动态类型导致的问题，需要在报告中说明。
+应能启动 GUI。
+
+### P.2 串口功能
+
+1. 能列出串口；
+2. 能选择波特率；
+3. 能打开串口；
+4. 能关闭串口；
+5. 能重连；
+6. 端口异常时 GUI 不死锁；
+7. 状态区显示明确错误。
+
+### P.3 协议解析
+
+1. 使用固件真实协议；
+2. 识别 `0xAA 0xBB` 帧头和 `0xCC` 帧尾；
+3. 正确处理半包、粘包、坏帧；
+4. 坏帧数量、坏帧比例、resync 次数可见；
+5. 不因单个坏帧丢弃整段数据流。
+
+### P.4 数据解算
+
+能输出：
+
+```text
+PPG_G
+PPG_R
+PPG_IR
+ACC_X
+ACC_Y
+ACC_Z
+GYRO_X
+GYRO_Y
+GYRO_Z
+Uh1-Uh4
+Uc1-Uc4
+UD1-UD2
+```
+
+并保留：
+
+```text
+timestamp
+relative_time_s
+frame_seq or sample_seq
+```
+
+### P.5 实时绘图
+
+1. PPG 三色曲线正常；
+2. ACC 三轴正常；
+3. GYRO 三轴正常；
+4. Uh 四路正常；
+5. Uc 四路正常；
+6. UD 两路正常；
+7. 最近 N 秒窗口；
+8. 默认 20 Hz 刷新；
+9. 支持暂停绘图；
+10. 支持隐藏曲线；
+11. 中文不乱码。
+
+### P.6 控制命令
+
+1. 控制命令格式来自固件；
+2. 参数合法性检查；
+3. 支持：
+
+   * PPG mode；
+   * LED 亮度；
+   * PPG 量程；
+   * 脉宽；
+   * IMU 量程。
+4. 发送失败有明确提示。
+
+### P.7 数据记录
+
+每次记录生成：
+
+```text
+raw_frames.bin
+decoded.csv
+metadata.json
+```
+
+要求：
+
+1. raw bin 必须包含原始数据和时间戳；
+2. decoded csv 可读；
+3. metadata 字段完整；
+4. 100 Hz 全量记录；
+5. GUI 主线程不写文件；
+6. 不每帧 flush；
+7. 不每帧 pandas append。
+
+### P.8 健康监控
+
+状态区显示：
+
+```text
+bytes/s
+有效帧率
+坏帧率
+resync 次数
+串口缓冲区字节数
+解析缓冲字节数
+绘图 FPS
+记录队列长度
+串口连接状态
+记录状态
+```
+
+刷新频率 1–5 Hz。
+
+### P.9 回放
+
+1. raw bin 可回放；
+2. decoded csv 可回放；
+3. 支持暂停；
+4. 支持继续；
+5. 支持倍速；
+6. 支持慢速；
+7. 无硬件时可调试 GUI。
 
 ---
 
-## Q. 需要 Code Agent 在不确定时暂停并报告的问题清单
+## Q. 不确定时必须暂停并报告的问题清单
 
-遇到以下任一情况，必须暂停相关实现并报告，不得猜测：
+遇到以下情况时，不要继续编造实现，必须暂停并向用户报告。
 
-### Q.1 协议不确定
+### Q.1 协议相关
 
-暂停并报告：
+1. 找不到完整帧长度；
+2. 找不到 payload 字段顺序；
+3. 找不到字节序；
+4. 找不到 checksum / CRC 规则；
+5. 找不到 PPG 缩放系数；
+6. 找不到 IMU 缩放系数；
+7. 找不到电压缩放系数；
+8. Uh / Uc 原始单位不明确；
+9. UD 的两个通道来源不明确；
+10. 帧序号或采样序号是否存在不明确；
+11. 下位机是否发送时间戳不明确；
+12. 采样率是否固定 100 Hz 不明确。
 
-1. 无法确认帧长度；
-2. 无法确认 payload 字段顺序；
-3. 无法确认字段数据类型；
-4. 无法确认字节序；
-5. 无法确认校验方式；
-6. 无法确认缩放系数；
-7. 无法确认 PPG / IMU / 电压字段含义；
-8. 无法确认采样率；
-9. 无法确认帧序号或时间戳；
-10. 无法确认控制命令格式。
+### Q.2 控制命令相关
 
-### Q.2 控制命令不确定
+1. 找不到上位机控制命令格式；
+2. 找不到 PPG mode 枚举；
+3. 找不到 LED 亮度范围；
+4. 找不到 PPG 量程枚举；
+5. 找不到脉宽枚举；
+6. 找不到 IMU 量程枚举；
+7. 命令是否需要 checksum 不明确；
+8. 命令是否有 ACK 不明确。
 
-暂停并报告：
+### Q.3 数据记录相关
 
-1. 不知道 PPG mode 命令 ID；
-2. 不知道 LED 亮度范围；
-3. 不知道 PPG 量程枚举；
-4. 不知道脉宽枚举；
-5. 不知道 IMU 量程枚举；
-6. 不知道命令是否需要 checksum；
-7. 不知道命令是否有 ACK / NACK。
+1. raw bin 应记录 raw chunk 还是完整 raw frame 不明确；
+2. 是否需要记录坏帧 fragment 不明确；
+3. metadata 中固件 commit 无法获取；
+4. CSV 字段单位无法确认。
 
-### Q.3 传感器缩放不确定
+### Q.4 工程相关
 
-暂停并报告：
+1. 固件仓库无法访问；
+2. 本地没有固件源码；
+3. sensorlist 不存在或内容不足；
+4. 当前目录已有代码且结构不清楚；
+5. 当前目录有未提交用户修改，可能被覆盖；
+6. 虚拟串口方案在 Windows 上不可用。
 
-1. PPG 原始值如何换算；
-2. Acc 原始值如何换算到 g 或 m/s²；
-3. Gyro 原始值如何换算到 dps 或 rad/s；
-4. Uh / Uc 原始 ADC 如何换算成电压；
-5. UD 的 2 路信号如何对应 4 路 Uh / Uc。
+### Q.5 报告格式
 
-### Q.4 运行环境不确定
+暂停时输出：
 
-暂停并报告：
+```text
+当前已确认内容：
+- ...
 
-1. 指定 Python 解释器不可用；
-2. PySide6 无法导入；
-3. pyqtgraph 无法导入；
-4. pyserial 无法导入；
-5. 没有写入权限；
-6. 测试工具缺失。
+当前无法确认内容：
+- ...
 
-### Q.5 架构风险
+已检查的文件：
+- ...
 
-暂停并报告：
+建议用户确认的问题：
+1. ...
+2. ...
 
-1. 当前实现会导致 GUI 主线程阻塞；
-2. 记录线程无法跟上 100 Hz；
-3. parser 不支持坏帧恢复；
-4. 数据记录格式无法回放；
-5. metadata 无法完整记录实验参数；
-6. 虚拟串口方案在当前系统不可行。
+在用户确认前，不继续实现相关 parser / command 编码。
+```
 
 ---
 
-## 最终开发要求
+## 附录：MCP 使用建议
 
-1. 先读固件源码；
-2. 先写协议分析报告；
-3. 协议明确后再写 parser；
-4. 小步实现；
-5. 每阶段测试；
-6. 每阶段 git commit；
-7. 不要一次性重写全部工程；
-8. 不要编造协议；
-9. GUI 主线程不得阻塞；
-10. raw frame 必须记录；
-11. decoded csv 必须可读；
-12. metadata 必须完整；
-13. 回放模式必须可用；
-14. 长时间运行必须稳定。
+Codex 可以使用已经安装的 MCP：
+
+```text
+Context7 MCP
+OpenAI Developer Docs MCP
+```
+
+建议用途：
+
+1. 查询 PySide6 官方 API 用法；
+2. 查询 PyQtGraph 实时绘图最佳实践；
+3. 查询 pyserial 串口异常处理；
+4. 查询 Python packaging / pytest 用法；
+5. 查询 Qt Signal/Slot 和 QThread 推荐模式。
+
+注意：
+
+MCP 只能用于查库和工程实现方式，不能替代固件源码中的协议确认。通信协议必须以 STM32 固件源码、sensorlist 和项目文档为准。
+
+---
+
+## 附录：开发底线
+
+1. 不编造协议。
+2. 不让 GUI 主线程阻塞。
+3. 不每帧写文件 flush。
+4. 不每帧更新 QLabel。
+5. 不一次性重写全部工程。
+6. 不把模拟协议当真实协议。
+7. 不忽略坏帧统计。
+8. 不忽略 raw 数据记录。
+9. 不在协议不清楚时继续硬写 parser。
+10. 每阶段测试成功后再进入下一阶段。
