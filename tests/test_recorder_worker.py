@@ -57,4 +57,6 @@ def test_recorder_worker_writes_all_session_files_and_end_time(tmp_path) -> None
     assert "PPG_G" in (session_dir / "decoded.csv").read_text(encoding="utf-8")
 
     metadata = json.loads((session_dir / "metadata.json").read_text(encoding="utf-8"))
+    assert metadata["session"]["record_start_time"] is not None
     assert metadata["session"]["record_end_time"] is not None
+    assert metadata["session"]["record_path"] == str(session_dir)

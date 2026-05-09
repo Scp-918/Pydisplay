@@ -72,6 +72,9 @@ class RecorderWorker:
         self.session_dir.mkdir(parents=True, exist_ok=False)
         start_iso = datetime.now(timezone.utc).isoformat()
         self._metadata = metadata or build_metadata(record_path=self.session_dir, record_start_time=start_iso)
+        self._metadata.setdefault("session", {})
+        self._metadata["session"]["record_start_time"] = self._metadata["session"].get("record_start_time") or start_iso
+        self._metadata["session"]["record_path"] = str(self.session_dir)
         self._raw_writer = RawBinWriter(self.session_dir / "raw_frames.bin", created_unix_ns=time.time_ns())
         self._csv_writer = DecodedCsvWriter(self.session_dir / "decoded.csv")
         self._raw_writer.open()
