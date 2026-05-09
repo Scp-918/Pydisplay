@@ -1,0 +1,10 @@
+[project]
+name = "pydisplay"
+version = "0.1.0"
+description = "Python GUI upper computer for STM32G474 BLE serial data display"
+requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-ra"

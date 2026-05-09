@@ -1,1 +1,6 @@
 .codex_firmware/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+logs/
+records/
