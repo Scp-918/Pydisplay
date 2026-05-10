@@ -56,7 +56,8 @@ class PlotManager:
     def _build_group_widget(self, pg, group: PlotGroupConfig):
         """创建一个九宫格中的绘图区块。
 
-        有 subplots 的区块包含“总图 + 每条曲线独立子图”；没有 subplots 的区块只包含一个总图。
+        a/b/c/d 这类 show_combined=False 的区块只包含独立子图；
+        e/f/g 这类 show_combined=True 的区块包含一个多曲线总图。
         """
         from PySide6.QtWidgets import QGroupBox, QVBoxLayout
 
@@ -65,18 +66,24 @@ class PlotManager:
         container_layout.setContentsMargins(6, 6, 6, 6)
         container_layout.setSpacing(4)
 
-        main_plot = self._make_plot(pg, group.title, group.unit, minimum_height=145 if group.subplots else 170)
-        if len(group.curves) > 1:
-            main_plot.addLegend(offset=(5, 5))
-        container_layout.addWidget(main_plot)
-        self.plot_widgets[f"{group.key}:main"] = main_plot
-        for curve_key in group.curves:
-            self._add_curve(pg, main_plot, curve_key)
+        link_root = None
+        if group.show_combined:
+            main_plot = self._make_plot(pg, group.title, group.unit, minimum_height=170)
+            if len(group.curves) > 1:
+                main_plot.addLegend(offset=(5, 5))
+            container_layout.addWidget(main_plot)
+            self.plot_widgets[f"{group.key}:main"] = main_plot
+            link_root = main_plot
+            for curve_key in group.curves:
+                self._add_curve(pg, main_plot, curve_key)
 
         for curve_key in group.subplots:
             curve = CURVE_BY_KEY[curve_key]
-            subplot = self._make_plot(pg, curve.label, curve.unit, minimum_height=88)
-            subplot.setXLink(main_plot)
+            subplot = self._make_plot(pg, curve.label, curve.unit, minimum_height=110)
+            if link_root is None:
+                link_root = subplot
+            else:
+                subplot.setXLink(link_root)
             container_layout.addWidget(subplot)
             self.plot_widgets[f"{group.key}:{curve_key}"] = subplot
             self._add_curve(pg, subplot, curve_key, width=1.0)

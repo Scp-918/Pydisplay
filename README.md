@@ -64,7 +64,9 @@ a, b, d
 f, g, e
 ```
 
-`a` is 3-color PPG, `b` is Uh channel 2/3, `c` is Uc channel 2/3, `d` is UD1/UD2, `e` is Uh/Uc channel 1/4, `f` is ACC, and `g` is GYRO. PPG, Uh2/3, Uc2/3, and UD each include a combined plot plus per-channel subplots sharing the x-axis.
+`a` is 3-color PPG, `b` is Uh channel 2/3, `c` is Uc channel 2/3, `d` is UD1/UD2, `e` is Uh/Uc channel 1/4, `f` is ACC, and `g` is GYRO. Areas `a` to `d` show per-channel subplots only, with shared x-axes inside each area. Areas `e`, `f`, and `g` use compact multi-curve plots. Plot titles do not include the grid letters.
+
+Curve colors use muted, signal-oriented colors: PPG uses green/red/purple, Uh2/Uh3 uses red/orange, Uc2/Uc3 uses blue/cyan, and UD1/UD2 uses yellow/orange.
 
 ## Control Commands
 

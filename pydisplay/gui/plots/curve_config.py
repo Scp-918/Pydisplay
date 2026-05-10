@@ -23,7 +23,8 @@ class PlotGroupConfig:
     """一个绘图区块的静态配置。
 
     grid_position 使用 Qt 的 addWidget(row, column, row_span, column_span) 顺序。
-    curves 表示总图中绘制哪些曲线；subplots 表示哪些曲线还需要独立子图。
+    curves 表示该区块包含哪些曲线；subplots 表示哪些曲线需要独立子图。
+    show_combined 为 False 时不创建合并总图，只创建独立子图。
     """
 
     key: str
@@ -32,28 +33,29 @@ class PlotGroupConfig:
     subplots: tuple[str, ...]
     unit: str
     grid_position: tuple[int, int, int, int]
+    show_combined: bool = True
 
 
 CURVES = [
-    CurveConfig("ppg_g", "PPG_G", "PPG", "raw", "#2ca02c"),
-    CurveConfig("ppg_r", "PPG_R", "PPG", "raw", "#d62728"),
-    CurveConfig("ppg_ir", "PPG_IR", "PPG", "raw", "#7f7f7f"),
-    CurveConfig("acc_x", "ACC_X", "ACC", "g", "#1f77b4"),
-    CurveConfig("acc_y", "ACC_Y", "ACC", "g", "#ff7f0e"),
-    CurveConfig("acc_z", "ACC_Z", "ACC", "g", "#2ca02c"),
-    CurveConfig("gyro_x", "GYRO_X", "GYRO", "dps", "#1f77b4"),
-    CurveConfig("gyro_y", "GYRO_Y", "GYRO", "dps", "#ff7f0e"),
-    CurveConfig("gyro_z", "GYRO_Z", "GYRO", "dps", "#2ca02c"),
-    CurveConfig("uh1", "Uh1", "Uh", "V", "#1f77b4"),
-    CurveConfig("uh2", "Uh2", "Uh", "V", "#ff7f0e"),
-    CurveConfig("uh3", "Uh3", "Uh", "V", "#2ca02c"),
-    CurveConfig("uh4", "Uh4", "Uh", "V", "#9467bd"),
-    CurveConfig("uc1", "Uc1", "Uc", "V", "#1f77b4"),
-    CurveConfig("uc2", "Uc2", "Uc", "V", "#ff7f0e"),
-    CurveConfig("uc3", "Uc3", "Uc", "V", "#2ca02c"),
-    CurveConfig("uc4", "Uc4", "Uc", "V", "#9467bd"),
-    CurveConfig("ud1", "UD1", "UD", "ratio", "#17becf"),
-    CurveConfig("ud2", "UD2", "UD", "ratio", "#e377c2"),
+    CurveConfig("ppg_g", "PPG_G", "PPG", "raw", "#3E8F5C"),
+    CurveConfig("ppg_r", "PPG_R", "PPG", "raw", "#B94E4E"),
+    CurveConfig("ppg_ir", "PPG_IR", "PPG", "raw", "#7A68A6"),
+    CurveConfig("acc_x", "ACC_X", "ACC", "g", "#4F7FA8"),
+    CurveConfig("acc_y", "ACC_Y", "ACC", "g", "#75A66A"),
+    CurveConfig("acc_z", "ACC_Z", "ACC", "g", "#A77FB3"),
+    CurveConfig("gyro_x", "GYRO_X", "GYRO", "dps", "#5D6FA8"),
+    CurveConfig("gyro_y", "GYRO_Y", "GYRO", "dps", "#B56C82"),
+    CurveConfig("gyro_z", "GYRO_Z", "GYRO", "dps", "#8C9856"),
+    CurveConfig("uh1", "Uh1", "Uh", "V", "#9D6A66"),
+    CurveConfig("uh2", "Uh2", "Uh", "V", "#B65C5A"),
+    CurveConfig("uh3", "Uh3", "Uh", "V", "#C87A3A"),
+    CurveConfig("uh4", "Uh4", "Uh", "V", "#A07144"),
+    CurveConfig("uc1", "Uc1", "Uc", "V", "#5E83A6"),
+    CurveConfig("uc2", "Uc2", "Uc", "V", "#4C78A8"),
+    CurveConfig("uc3", "Uc3", "Uc", "V", "#3F9C9A"),
+    CurveConfig("uc4", "Uc4", "Uc", "V", "#5C9A8D"),
+    CurveConfig("ud1", "UD1", "UD", "ratio", "#BFA43A"),
+    CurveConfig("ud2", "UD2", "UD", "ratio", "#D08A3C"),
 ]
 
 CURVE_BY_KEY = {curve.key: curve for curve in CURVES}
@@ -62,39 +64,43 @@ CURVE_BY_KEY = {curve.key: curve for curve in CURVES}
 PLOT_GROUPS = (
     PlotGroupConfig(
         key="ppg",
-        title="a. 3色 PPG",
+        title="3色 PPG",
         curves=("ppg_g", "ppg_r", "ppg_ir"),
         subplots=("ppg_g", "ppg_r", "ppg_ir"),
         unit="raw",
         grid_position=(0, 0, 2, 1),
+        show_combined=False,
     ),
     PlotGroupConfig(
         key="uh23",
-        title="b. 2/3号 Uh",
+        title="2/3号 Uh",
         curves=("uh2", "uh3"),
         subplots=("uh2", "uh3"),
         unit="V",
         grid_position=(0, 1, 2, 1),
+        show_combined=False,
     ),
     PlotGroupConfig(
         key="uc23",
-        title="c. 2/3号 Uc",
+        title="2/3号 Uc",
         curves=("uc2", "uc3"),
         subplots=("uc2", "uc3"),
         unit="V",
         grid_position=(0, 2, 1, 1),
+        show_combined=False,
     ),
     PlotGroupConfig(
         key="ud",
-        title="d. UD1 / UD2",
+        title="UD1 / UD2",
         curves=("ud1", "ud2"),
         subplots=("ud1", "ud2"),
         unit="ratio",
         grid_position=(1, 2, 1, 1),
+        show_combined=False,
     ),
     PlotGroupConfig(
         key="acc",
-        title="f. 3轴 ACC",
+        title="3轴 ACC",
         curves=("acc_x", "acc_y", "acc_z"),
         subplots=(),
         unit="g",
@@ -102,7 +108,7 @@ PLOT_GROUPS = (
     ),
     PlotGroupConfig(
         key="gyro",
-        title="g. 3轴 GYRO",
+        title="3轴 GYRO",
         curves=("gyro_x", "gyro_y", "gyro_z"),
         subplots=(),
         unit="dps",
@@ -110,7 +116,7 @@ PLOT_GROUPS = (
     ),
     PlotGroupConfig(
         key="sensor14",
-        title="e. 1/4号 Uh / Uc",
+        title="1/4号 Uh / Uc",
         curves=("uh1", "uc1", "uh4", "uc4"),
         subplots=(),
         unit="V",

@@ -39,14 +39,16 @@
 ## 4. Plots
 
 - [ ] PPG_G / PPG_R / PPG_IR curves display.
-- [ ] PPG combined plot and three PPG subplots display.
+- [ ] PPG displays three independent subplots, without a combined PPG plot.
 - [ ] ACC_X / ACC_Y / ACC_Z curves display.
 - [ ] GYRO_X / GYRO_Y / GYRO_Z curves display.
-- [ ] Uh2 / Uh3 combined plot and independent Uh2 / Uh3 subplots display.
-- [ ] Uc2 / Uc3 combined plot and independent Uc2 / Uc3 subplots display.
-- [ ] UD1 / UD2 combined plot and independent UD1 / UD2 subplots display.
+- [ ] Uh2 / Uh3 display independent subplots, without a combined Uh2/Uh3 plot.
+- [ ] Uc2 / Uc3 display independent subplots, without a combined Uc2/Uc3 plot.
+- [ ] UD1 / UD2 display independent subplots, without a combined UD plot.
 - [ ] Uh/Uc channel 1/4 plot displays.
 - [ ] ACC and GYRO plots display in the bottom row.
+- [ ] Plot group titles do not include `a/b/c/d/e/f/g` letter prefixes.
+- [ ] PPG colors are green/red/purple, Uh2/Uh3 are red/orange, Uc2/Uc3 are blue/cyan, and UD1/UD2 are yellow/orange.
 - [ ] Plot refresh defaults to about 20 Hz.
 - [ ] `暂停绘图` stops curve refresh while data can still be recorded.
 - [ ] `X轴长度` changes the realtime visible time window.
