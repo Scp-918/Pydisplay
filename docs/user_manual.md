@@ -22,9 +22,9 @@ Click `刷新串口`, choose the HJ380 COM port, keep baudrate `460800` unless f
 
 ## Plot Workflow
 
-The top of the plot panel contains `暂停绘图` and `X轴长度`. Use `X轴长度` to choose how many recent seconds are visible on the realtime x-axis. Curve visibility checkboxes are at the bottom of the plot scroll area.
+The top of the plot panel contains `暂停绘图` and `X轴长度`. Use `X轴长度` to choose how many recent seconds are visible on the realtime x-axis. Curve visibility checkboxes are placed further down at the bottom of the plot scroll area.
 
-The plot grid uses `a,b,c / a,b,d / f,g,e`: `a` PPG, `b` Uh2/Uh3, `c` Uc2/Uc3, `d` UD1/UD2, `e` Uh/Uc channel 1/4, `f` ACC, and `g` GYRO. Areas `a` to `d` show only per-channel subplots with shared x-axes. Areas `e`, `f`, and `g` remain compact multi-curve plots. Plot titles do not include the grid letters.
+The plot grid uses `a,b,c / a,b,d / f,g,e`: `a` PPG, `b` Uh2/Uh3, `c` Uc2/Uc3, `d` UD1/UD2, `e` Uh/Uc channel 1/4, `f` ACC, and `g` GYRO. Areas `a` to `d` show only per-channel subplots with shared x-axes. Area `e` has two subplots: sensor 1 Uh/Uc and sensor 4 Uh/Uc. Areas `f` and `g` remain compact multi-curve plots. Plot titles do not include the grid letters.
 
 Color choices are muted and signal-oriented: PPG is green/red/purple, Uh2/Uh3 is red/orange, Uc2/Uc3 is blue/cyan, UD1/UD2 is yellow/orange, and ACC/GYRO axes use distinct subdued colors.
 

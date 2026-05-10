@@ -54,7 +54,7 @@ The left control column is intentionally compact so the realtime plots get more 
 
 The replay panel sits below the health panel in the scrollable left column. In normal monitoring you usually see serial/control/recording/health first; scroll down when you need replay inputs.
 
-The realtime plot header keeps only `暂停绘图` and an editable `X轴长度` value. Curve visibility checkboxes are moved to the bottom of the plot scroll area.
+The realtime plot header keeps only `暂停绘图` and an editable `X轴长度` value. Curve visibility checkboxes are placed further down at the bottom of the plot scroll area, so routine viewing gives more space to plots.
 
 The plot area uses a 3x3 layout:
 
@@ -64,7 +64,7 @@ a, b, d
 f, g, e
 ```
 
-`a` is 3-color PPG, `b` is Uh channel 2/3, `c` is Uc channel 2/3, `d` is UD1/UD2, `e` is Uh/Uc channel 1/4, `f` is ACC, and `g` is GYRO. Areas `a` to `d` show per-channel subplots only, with shared x-axes inside each area. Areas `e`, `f`, and `g` use compact multi-curve plots. Plot titles do not include the grid letters.
+`a` is 3-color PPG, `b` is Uh channel 2/3, `c` is Uc channel 2/3, `d` is UD1/UD2, `e` is Uh/Uc channel 1/4, `f` is ACC, and `g` is GYRO. Areas `a` to `d` show per-channel subplots only, with shared x-axes inside each area. Area `e` now has one subplot for sensor 1 Uh/Uc and one subplot for sensor 4 Uh/Uc. Areas `f` and `g` use compact multi-curve plots. Plot titles do not include the grid letters.
 
 Curve colors use muted, signal-oriented colors: PPG uses green/red/purple, Uh2/Uh3 uses red/orange, Uc2/Uc3 uses blue/cyan, and UD1/UD2 uses yellow/orange.
 

@@ -57,7 +57,7 @@ class PlotManager:
         """创建一个九宫格中的绘图区块。
 
         a/b/c/d 这类 show_combined=False 的区块只包含独立子图；
-        e/f/g 这类 show_combined=True 的区块包含一个多曲线总图。
+        subplot_groups 可在一个子图里绘制多条曲线，例如 1 号传感器 Uh/Uc。
         """
         from PySide6.QtWidgets import QGroupBox, QVBoxLayout
 
@@ -79,16 +79,44 @@ class PlotManager:
 
         for curve_key in group.subplots:
             curve = CURVE_BY_KEY[curve_key]
-            subplot = self._make_plot(pg, curve.label, curve.unit, minimum_height=110)
-            if link_root is None:
-                link_root = subplot
-            else:
-                subplot.setXLink(link_root)
-            container_layout.addWidget(subplot)
-            self.plot_widgets[f"{group.key}:{curve_key}"] = subplot
-            self._add_curve(pg, subplot, curve_key, width=1.0)
+            link_root = self._add_subplot(
+                pg,
+                container_layout,
+                group_key=group.key,
+                plot_key=curve_key,
+                title=curve.label,
+                unit=curve.unit,
+                curve_keys=(curve_key,),
+                link_root=link_root,
+            )
+
+        for index, subplot_group in enumerate(group.subplot_groups, start=1):
+            link_root = self._add_subplot(
+                pg,
+                container_layout,
+                group_key=group.key,
+                plot_key=f"group{index}",
+                title=subplot_group.title,
+                unit=subplot_group.unit,
+                curve_keys=subplot_group.curves,
+                link_root=link_root,
+            )
 
         return container
+
+    def _add_subplot(self, pg, layout, *, group_key: str, plot_key: str, title: str, unit: str, curve_keys: tuple[str, ...], link_root):
+        subplot = self._make_plot(pg, title, unit, minimum_height=118)
+        if len(curve_keys) > 1:
+            subplot.addLegend(offset=(5, 5))
+        if link_root is None:
+            link_root = subplot
+        else:
+            subplot.setXLink(link_root)
+        layout.addWidget(subplot)
+        self.plot_widgets[f"{group_key}:{plot_key}"] = subplot
+        for curve_key in curve_keys:
+            self._add_curve(pg, subplot, curve_key, width=1.0)
+        return link_root
 
     @staticmethod
     def _make_plot(pg, title: str, unit: str, *, minimum_height: int):

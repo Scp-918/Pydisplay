@@ -19,11 +19,21 @@ class CurveConfig:
 
 
 @dataclass(frozen=True, slots=True)
+class SubplotGroupConfig:
+    """一个独立子图配置；可包含一条或多条曲线。"""
+
+    title: str
+    curves: tuple[str, ...]
+    unit: str
+
+
+@dataclass(frozen=True, slots=True)
 class PlotGroupConfig:
     """一个绘图区块的静态配置。
 
     grid_position 使用 Qt 的 addWidget(row, column, row_span, column_span) 顺序。
-    curves 表示该区块包含哪些曲线；subplots 表示哪些曲线需要独立子图。
+    curves 表示该区块包含哪些曲线；subplots 表示哪些单曲线需要独立子图。
+    subplot_groups 用于“一个子图内绘制多条曲线”的情况。
     show_combined 为 False 时不创建合并总图，只创建独立子图。
     """
 
@@ -34,6 +44,7 @@ class PlotGroupConfig:
     unit: str
     grid_position: tuple[int, int, int, int]
     show_combined: bool = True
+    subplot_groups: tuple[SubplotGroupConfig, ...] = ()
 
 
 CURVES = [
@@ -121,5 +132,10 @@ PLOT_GROUPS = (
         subplots=(),
         unit="V",
         grid_position=(2, 2, 1, 1),
+        show_combined=False,
+        subplot_groups=(
+            SubplotGroupConfig("1号传感器 Uh/Uc", ("uh1", "uc1"), "V"),
+            SubplotGroupConfig("4号传感器 Uh/Uc", ("uh4", "uc4"), "V"),
+        ),
     ),
 )

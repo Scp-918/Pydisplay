@@ -45,14 +45,14 @@
 - [ ] Uh2 / Uh3 display independent subplots, without a combined Uh2/Uh3 plot.
 - [ ] Uc2 / Uc3 display independent subplots, without a combined Uc2/Uc3 plot.
 - [ ] UD1 / UD2 display independent subplots, without a combined UD plot.
-- [ ] Uh/Uc channel 1/4 plot displays.
+- [ ] Uh/Uc channel 1/4 displays as two subplots: sensor 1 Uh/Uc and sensor 4 Uh/Uc.
 - [ ] ACC and GYRO plots display in the bottom row.
 - [ ] Plot group titles do not include `a/b/c/d/e/f/g` letter prefixes.
 - [ ] PPG colors are green/red/purple, Uh2/Uh3 are red/orange, Uc2/Uc3 are blue/cyan, and UD1/UD2 are yellow/orange.
 - [ ] Plot refresh defaults to about 20 Hz.
 - [ ] `暂停绘图` stops curve refresh while data can still be recorded.
 - [ ] `X轴长度` changes the realtime visible time window.
-- [ ] Curve visibility checkboxes are reachable by scrolling to the bottom of the plot area.
+- [ ] Curve visibility checkboxes are reachable only after scrolling down to the bottom of the plot area, leaving more first-screen space for plots.
 - [ ] Curve visibility checkboxes hide/show curves.
 
 ## 5. Recording

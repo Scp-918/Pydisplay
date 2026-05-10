@@ -32,14 +32,18 @@ def test_plot_groups_have_expected_curves_and_subplots() -> None:
     assert groups["ud"].show_combined is False
     assert groups["sensor14"].curves == ("uh1", "uc1", "uh4", "uc4")
     assert groups["sensor14"].subplots == ()
-    assert groups["sensor14"].show_combined is True
+    assert groups["sensor14"].show_combined is False
+    assert tuple(group.curves for group in groups["sensor14"].subplot_groups) == (("uh1", "uc1"), ("uh4", "uc4"))
+    assert tuple(group.title for group in groups["sensor14"].subplot_groups) == ("1号传感器 Uh/Uc", "4号传感器 Uh/Uc")
 
 
 def test_all_plot_group_curve_keys_are_known() -> None:
     known_keys = {curve.key for curve in CURVES}
     grouped_keys = {key for group in PLOT_GROUPS for key in group.curves}
+    subplot_grouped_keys = {key for group in PLOT_GROUPS for subplot in group.subplot_groups for key in subplot.curves}
 
     assert grouped_keys <= known_keys
+    assert subplot_grouped_keys <= known_keys
     assert len(known_keys) == len(CURVES)
 
 

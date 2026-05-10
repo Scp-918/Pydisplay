@@ -73,6 +73,7 @@ class PlotPanel(QGroupBox):
             checkbox.setChecked(True)
             checkbox.toggled.connect(lambda checked, key=curve.key: self.set_curve_visible(key, checked))
             curve_layout.addWidget(checkbox, index // 6, index % 6)
+        body_layout.addSpacing(180)
         body_layout.addWidget(curve_group)
         body_layout.addStretch(1)
         scroll.setWidget(body)
