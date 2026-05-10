@@ -254,14 +254,25 @@ sensorlist
 13. 4 路 Uh 原始值含义；
 14. 4 路 Uc 原始值含义；
 15. 电压缩放系数；
-16. PPG 缩放系数；
+16. PPG 缩放系数（PPG 只记录固件输出的 raw count）；
 17. IMU 缩放系数；
-18. 帧序号或采样序号是否存在；
-19. 时间戳是否由下位机提供；
-20. 上位机控制命令格式；
+18. 帧序号目前不存在；
+19. 时间戳由上位机提供，下位机暂时不提供时间戳；
+20. 上位机控制命令格式（控制帧目前设计为无 ACK/NACK）；
 21. metadata 控制参数枚举或取值范围；
 22. 协议版本信息；
-23. 未确认问题清单。
+23. 未确认问题清单;
+
+额外增加传感器数据说明，无需确认：
+`adc_data[ch].early_code` 对应`Uc`,和 `adc_data[ch].late_code` 对应 `Uh`;
+4 个 ADC 通道按照帧记录顺序从前到后与实验通道 `1..4`一一对应; 
+`UD1` / `UD2` 分别使用通道2/通道3两路 `Uh` / `Uc`分别计算，通道2对应`UD1`,通道3对应`UD2`;
+AD4007 原始码到电压的换算公式可以参考如下代码（data[2]到data[5]对应帧2-5位字节），其中VREF=4.096V，无外部偏置，满量程17位：
+temp32 = (data[2] & 255) + ((data[3] & 255) * 256) + ((data[4] & 255) * 65536);
+if (temp32 >= 8388608) temp32 = temp32 - 16777216;
+Ul1 = temp32 * (VREF / 131072.0);
+PPG 只记录固件输出的 raw count;
+控制帧设计为无 ACK/NACK;
 
 ### B.4 sensorlist 检查要求
 
@@ -314,9 +325,9 @@ docs/protocol_questions.md
 4. 每个字段的字节数；
 5. 有符号 / 无符号类型；
 6. float / int / fixed-point 表示；
-7. little-endian / big-endian；
-8. checksum / CRC 算法；
-9. CRC 多项式；
+7. little-endian / big-endian（确认是否有）；
+8. checksum 算法；
+9. CRC 多项式（实际中是没有使用CRC 多项式）；
 10. PPG 缩放系数；
 11. IMU 缩放系数；
 12. 电压缩放系数；
