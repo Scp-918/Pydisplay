@@ -55,7 +55,11 @@ def decode_frame(frame: ParsedFrame, config: DecodeConfig) -> DecodedSample:
 
     gyro_scale = _lookup_scale(GYRO_MDPS_PER_LSB, config.gyro_range_code, "gyro") / 1000.0
     accel_scale = _lookup_scale(ACCEL_MG_PER_LSB, config.accel_range_code, "accel") / 1000.0
-    start_time = frame.timestamp_ns if config.start_time_ns is None else config.start_time_ns
+    if config.start_time_ns is None:
+        # 第一个有效帧作为本次实时流/RAW 回放的时间零点。
+        # 之前每帧都临时使用自己的 timestamp 作零点，导致所有 x 坐标都是 0。
+        config.start_time_ns = frame.timestamp_ns
+    start_time = config.start_time_ns
 
     return DecodedSample(
         timestamp_pc_ns=frame.timestamp_ns,

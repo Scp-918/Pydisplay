@@ -10,6 +10,18 @@ from __future__ import annotations
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QComboBox, QDoubleSpinBox, QFormLayout, QGroupBox, QPushButton, QSpinBox, QVBoxLayout
 
+from pydisplay.config import DEFAULT_K_VALUE
+from pydisplay.protocol.constants import (
+    DEFAULT_ACCEL_RANGE,
+    DEFAULT_GYRO_RANGE,
+    DEFAULT_LED_GREEN,
+    DEFAULT_LED_IR,
+    DEFAULT_LED_RED,
+    DEFAULT_PPG_ADC_RANGE,
+    DEFAULT_PPG_MODE,
+    DEFAULT_PPG_MULTI_SUBMODE,
+    DEFAULT_PPG_PULSE_WIDTH,
+)
 from pydisplay.protocol.models import ControlMetadata
 
 
@@ -23,19 +35,19 @@ class ControlPanel(QGroupBox):
         self.k_spin = QDoubleSpinBox()
         self.k_spin.setRange(-1000.0, 1000.0)
         self.k_spin.setDecimals(6)
-        self.k_spin.setValue(5.0)
+        self.k_spin.setValue(DEFAULT_K_VALUE)
         self.k_spin.setMaximumWidth(120)
         self.k_spin.valueChanged.connect(self.k_value_changed)
 
-        self.mode_combo = _combo([("MultiLED", 0x01), ("HR", 0x02), ("SpO2", 0x03)])
-        self.submode_combo = _combo([("G-R-IR", 0x01), ("G", 0x02), ("R", 0x03), ("IR", 0x04), ("R-IR", 0x05)])
-        self.led_g = _spin(0, 9, 1)
-        self.led_r = _spin(0, 9, 1)
-        self.led_ir = _spin(0, 9, 1)
-        self.ppg_range = _combo([("1", 0x01), ("2", 0x02), ("3", 0x03), ("4", 0x04)])
-        self.pulse_width = _combo([("1", 0x01), ("2", 0x02), ("3", 0x03), ("4", 0x04)])
-        self.gyro_range = _combo([("245 dps", 0x01), ("500 dps", 0x02), ("2000 dps", 0x03)])
-        self.accel_range = _combo([("2 g", 0x01), ("4 g", 0x02), ("8 g", 0x03), ("16 g", 0x04)])
+        self.mode_combo = _combo([("MultiLED", 0x01), ("HR", 0x02), ("SpO2", 0x03)], DEFAULT_PPG_MODE)
+        self.submode_combo = _combo([("G-R-IR", 0x01), ("G", 0x02), ("R", 0x03), ("IR", 0x04), ("R-IR", 0x05)], DEFAULT_PPG_MULTI_SUBMODE)
+        self.led_g = _spin(0, 9, DEFAULT_LED_GREEN)
+        self.led_r = _spin(0, 9, DEFAULT_LED_RED)
+        self.led_ir = _spin(0, 9, DEFAULT_LED_IR)
+        self.ppg_range = _combo([("1", 0x01), ("2", 0x02), ("3", 0x03), ("4", 0x04)], DEFAULT_PPG_ADC_RANGE)
+        self.pulse_width = _combo([("1", 0x01), ("2", 0x02), ("3", 0x03), ("4", 0x04)], DEFAULT_PPG_PULSE_WIDTH)
+        self.gyro_range = _combo([("245 dps", 0x01), ("500 dps", 0x02), ("2000 dps", 0x03)], DEFAULT_GYRO_RANGE)
+        self.accel_range = _combo([("2 g", 0x01), ("4 g", 0x02), ("8 g", 0x03), ("16 g", 0x04)], DEFAULT_ACCEL_RANGE)
 
         send_button = QPushButton("发送控制命令")
         send_button.setMaximumWidth(150)
@@ -81,11 +93,14 @@ class ControlPanel(QGroupBox):
         )
 
 
-def _combo(items: list[tuple[str, int]]) -> QComboBox:
+def _combo(items: list[tuple[str, int]], current_value: int) -> QComboBox:
     combo = QComboBox()
     combo.setMaximumWidth(150)
     for label, value in items:
         combo.addItem(label, value)
+    index = combo.findData(current_value)
+    if index >= 0:
+        combo.setCurrentIndex(index)
     return combo
 
 

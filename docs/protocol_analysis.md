@@ -203,6 +203,22 @@ Parameter ranges:
 | Gyro range | `0x01..0x03` | 245/500/2000 dps | `Core/Src/main.c:409-418` |
 | Accel range | `0x01..0x04` | 2/4/8/16 g | `Core/Src/main.c:424-436` |
 
+Firmware initialization defaults from `Core/Src/main.c:143-155`:
+
+| Field | Default | Meaning |
+|---|---:|---|
+| PPG mode | `0x01` | MultiLED |
+| Multi sub-mode | `0x01` | Green -> Red -> IR |
+| Green LED level | `0x05` | GUI level 5, mapped by firmware to LED current register |
+| Red LED level | `0x01` | GUI level 1 |
+| IR LED level | `0x01` | GUI level 1 |
+| PPG ADC range | `0x03` | 8192 nA |
+| PPG pulse width | `0x03` | 215 us |
+| Gyro range | `0x02` | +/-500 dps |
+| Accel range | `0x01` | +/-2 g |
+
+The Python GUI defaults mirror these firmware parameter bytes. The PC-side UD `k` default is `24`, based on the current project requirement rather than a firmware field.
+
 Receive/apply flow:
 
 - UART IDLE + DMA receives host bytes: `Core/Src/ble.c:307-327`, `Core/Src/ble.c:389-454`.

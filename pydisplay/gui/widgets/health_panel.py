@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from PySide6.QtWidgets import QFormLayout, QGroupBox, QLabel
+from PySide6.QtWidgets import QFormLayout, QGroupBox, QLabel, QSizePolicy
 
 from pydisplay.services.health_monitor import HealthSnapshot
 
@@ -14,12 +14,13 @@ from pydisplay.services.health_monitor import HealthSnapshot
 class HealthPanel(QGroupBox):
     def __init__(self) -> None:
         super().__init__("链路健康")
-        self.setMaximumWidth(310)
+        self.setMaximumWidth(360)
         self.labels: dict[str, QLabel] = {}
         layout = QFormLayout(self)
         layout.setContentsMargins(8, 8, 8, 8)
         layout.setSpacing(4)
-        layout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.FieldsStayAtSizeHint)
+        layout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
+        layout.setRowWrapPolicy(QFormLayout.RowWrapPolicy.DontWrapRows)
         for key, title in (
             ("serial_state", "串口状态"),
             ("recording_state", "记录状态"),
@@ -37,8 +38,12 @@ class HealthPanel(QGroupBox):
             ("last_error", "最近错误"),
         ):
             label = QLabel("--")
-            label.setMaximumWidth(170)
-            label.setWordWrap(True)
+            label.setMinimumWidth(220)
+            label.setMaximumWidth(260)
+            label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+            label.setWordWrap(key == "last_error")
+            if key == "last_error":
+                label.setMinimumHeight(34)
             self.labels[key] = label
             layout.addRow(title, label)
 

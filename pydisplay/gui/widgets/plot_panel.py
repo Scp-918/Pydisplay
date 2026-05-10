@@ -11,6 +11,7 @@ from __future__ import annotations
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QCheckBox, QDoubleSpinBox, QGridLayout, QGroupBox, QHBoxLayout, QLabel, QScrollArea, QVBoxLayout, QWidget
 
+from pydisplay.config import DEFAULT_PLOT_WINDOW_SECONDS
 from pydisplay.gui.plots.curve_config import CURVES
 from pydisplay.gui.plots.plot_manager import PlotFpsCounter
 from pydisplay.gui.plots.ring_buffer import SampleRingBuffer
@@ -18,7 +19,7 @@ from pydisplay.protocol.models import DecodedSample
 
 
 class PlotPanel(QGroupBox):
-    def __init__(self, *, capacity: int = 8000, refresh_hz: int = 20, window_seconds: float = 10.0) -> None:
+    def __init__(self, *, capacity: int = 8000, refresh_hz: int = 20, window_seconds: float = DEFAULT_PLOT_WINDOW_SECONDS) -> None:
         super().__init__("实时绘图")
         self.buffer = SampleRingBuffer(capacity)
         self.paused = False

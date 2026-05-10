@@ -104,3 +104,14 @@ def test_decoder_returns_nan_when_ud_denominator_is_near_zero() -> None:
 
     assert math.isnan(sample.ud1)
     assert any("UD1" in warning for warning in sample.warnings)
+
+
+def test_decoder_initializes_timebase_once_when_start_time_is_missing() -> None:
+    config = DecodeConfig(k=5.0)
+
+    first = decode_frame(build_parsed_frame(build_payload(), timestamp_ns=1_000_000_000), config)
+    second = decode_frame(build_parsed_frame(build_payload(), timestamp_ns=1_020_000_000), config)
+
+    assert config.start_time_ns == 1_000_000_000
+    assert first.relative_time_s == pytest.approx(0.0)
+    assert second.relative_time_s == pytest.approx(0.02)

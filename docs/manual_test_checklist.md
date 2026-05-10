@@ -11,6 +11,8 @@
 - [ ] Left column is compact and leaves most width for plots.
 - [ ] Left column order is serial, control, recording, health, replay.
 - [ ] Replay panel can be reached by scrolling down below health.
+- [ ] k value defaults to `24`.
+- [ ] Control defaults are MultiLED / G-R-IR / LED `5,1,1` / PPG range `3` / pulse `3` / gyro `500 dps` / accel `2 g`.
 
 ## 2. Serial
 
@@ -35,6 +37,7 @@
 - [ ] resync count updates.
 - [ ] Serial buffer bytes update.
 - [ ] Parser buffer bytes update.
+- [ ] Valid frame rate, parser buffer, and latest error fields are wide enough and do not overlap adjacent rows.
 
 ## 4. Plots
 
@@ -52,6 +55,8 @@
 - [ ] Plot refresh defaults to about 20 Hz.
 - [ ] `暂停绘图` stops curve refresh while data can still be recorded.
 - [ ] `X轴长度` changes the realtime visible time window.
+- [ ] `X轴长度` defaults to `5 s`.
+- [ ] Live or raw replay curves spread along the x-axis instead of appearing as a single vertical line.
 - [ ] Curve visibility checkboxes are reachable only after scrolling down to the bottom of the plot area, leaving more first-screen space for plots.
 - [ ] Curve visibility checkboxes hide/show curves.
 

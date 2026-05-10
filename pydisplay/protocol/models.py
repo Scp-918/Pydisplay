@@ -16,6 +16,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from .constants import DEFAULT_ACCEL_RANGE, DEFAULT_GYRO_RANGE
+
 
 @dataclass(slots=True)
 class RawFrame:
@@ -68,8 +70,8 @@ class DecodeConfig:
     """
     k: float
     start_time_ns: int | None = None
-    gyro_range_code: int = 0x02
-    accel_range_code: int = 0x01
+    gyro_range_code: int = DEFAULT_GYRO_RANGE
+    accel_range_code: int = DEFAULT_ACCEL_RANGE
     ud_epsilon: float = 1e-9
 
 

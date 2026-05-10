@@ -19,3 +19,8 @@ WINDOW_TITLE = "Pydisplay 上位机"
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 LOG_DIR = PROJECT_ROOT / "logs"
 DEFAULT_LOG_FILE = LOG_DIR / "pydisplay.log"
+
+# GUI 初始解算和显示窗口默认值。
+# k=24 来自当前实验解算要求；X 轴默认显示最近 5 秒，便于启动后看清实时细节。
+DEFAULT_K_VALUE = 24.0
+DEFAULT_PLOT_WINDOW_SECONDS = 5.0
