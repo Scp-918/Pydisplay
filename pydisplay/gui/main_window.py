@@ -26,7 +26,7 @@ from pydisplay.gui.widgets.plot_panel import PlotPanel
 from pydisplay.gui.widgets.recorder_panel import RecorderPanel
 from pydisplay.gui.widgets.replay_panel import ReplayPanel
 from pydisplay.gui.widgets.serial_panel import SerialPanel
-from pydisplay.io.serial_manager import SerialManager
+from pydisplay.io.serial_manager import SerialManager, SerialState, SerialStatus
 from pydisplay.io.serial_reader import RawChunk
 from pydisplay.protocol.models import DecodeConfig, DecodedSample
 from pydisplay.recorder.metadata import build_metadata
@@ -59,7 +59,7 @@ class MainWindow(QMainWindow):
         self.serial_manager = SerialManager(
             on_chunk=self.pipeline.handle_raw_chunk,
             on_error=lambda exc: self._show_error("串口异常", str(exc)),
-            on_state_changed=lambda status: self.serial_panel.set_status(status.state.name),
+            on_state_changed=self._handle_serial_status,
         )
         self.replay_worker: ReplayWorker | None = None
 
@@ -112,6 +112,8 @@ class MainWindow(QMainWindow):
         self.serial_panel.open_requested.connect(self._open_serial)
         self.serial_panel.close_requested.connect(self._close_serial)
         self.serial_panel.reconnect_requested.connect(self._reconnect_serial)
+        self.serial_panel.start_receiving_requested.connect(self._start_receiving)
+        self.serial_panel.pause_receiving_requested.connect(self._pause_receiving)
         self.control_panel.k_value_changed.connect(self._update_k)
         self.control_panel.control_command_requested.connect(self._send_control)
         self.recorder_panel.start_recording_requested.connect(self._start_recording)
@@ -124,15 +126,31 @@ class MainWindow(QMainWindow):
     def _open_serial(self, port: str, baudrate: int) -> None:
         """打开串口；真正读取由 SerialReader 后台线程完成。"""
         self.serial_manager.open(port, baudrate)
-        self.health.set_states(serial_state=self.serial_manager.state.name)
+        self.health.set_states(serial_state=self._serial_state_text())
 
     def _close_serial(self) -> None:
         self.serial_manager.close()
-        self.health.set_states(serial_state=self.serial_manager.state.name)
+        self.health.set_states(serial_state=self._serial_state_text())
 
     def _reconnect_serial(self) -> None:
         self.serial_manager.reconnect()
-        self.health.set_states(serial_state=self.serial_manager.state.name)
+        self.health.set_states(serial_state=self._serial_state_text())
+
+    def _start_receiving(self) -> None:
+        """继续从已打开串口读取数据。"""
+        if not self.serial_manager.is_connected():
+            self._show_error("接收不可用", "请先打开串口")
+            return
+        self.serial_manager.start_receiving()
+        self.health.set_states(serial_state=self._serial_state_text())
+
+    def _pause_receiving(self) -> None:
+        """暂停后台串口读取，但保持串口连接和记录系统状态不变。"""
+        if not self.serial_manager.is_connected():
+            self._show_error("接收不可用", "请先打开串口")
+            return
+        self.serial_manager.pause_receiving()
+        self.health.set_states(serial_state=self._serial_state_text())
 
     def _send_control(self, metadata) -> None:
         """发送控制命令；bytes 编码由 protocol.commands 完成。"""
@@ -198,7 +216,7 @@ class MainWindow(QMainWindow):
     def _refresh_health(self) -> None:
         """低频刷新健康面板，避免每帧更新 QLabel。"""
         self.health.set_states(
-            serial_state=self.serial_manager.state.name,
+            serial_state=self._serial_state_text(),
             recording_state=self.recorder.state.name,
             replay_state=self.replay_worker.state.name if self.replay_worker else "IDLE",
         )
@@ -208,6 +226,19 @@ class MainWindow(QMainWindow):
         )
         snapshot = self.health.snapshot(now_ns=time.time_ns())
         self.health_panel.update_snapshot(snapshot)
+
+    def _handle_serial_status(self, status: SerialStatus) -> None:
+        """把 SerialManager 状态同步到串口面板。"""
+        self.serial_panel.set_status(status.state.name)
+        if status.state != SerialState.CONNECTED:
+            self.serial_panel.set_receive_status("未接收")
+        else:
+            self.serial_panel.set_receiving_paused(status.receive_paused)
+
+    def _serial_state_text(self) -> str:
+        if self.serial_manager.state == SerialState.CONNECTED and self.serial_manager.status.receive_paused:
+            return "CONNECTED/PAUSED"
+        return self.serial_manager.state.name
 
     def _show_error(self, title: str, message: str) -> None:
         self.health.set_last_error(message)

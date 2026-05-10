@@ -21,6 +21,12 @@ cd D:\Desktop\STM32G474\Pydisplay
 python -m pydisplay
 ```
 
+Windows double-click startup:
+
+1. Double-click `Start_Pydisplay.bat` in the project root.
+2. The batch file enters this directory and runs `conda run -n Pydisplay_env python -m pydisplay`.
+3. If Windows reports that `conda` cannot be found, start the app from Anaconda Prompt with the command-line steps above.
+
 Non-interactive startup validation:
 
 ```powershell
@@ -33,7 +39,8 @@ conda run -n Pydisplay_env python -m pydisplay --smoke-test
 2. Click `刷新串口`.
 3. Select the HJ380 COM port and baudrate. Firmware documentation targets `460800`.
 4. Click `打开串口`.
-5. Use `关闭串口` or `重连` for recovery.
+5. Data receiving starts after the port is opened. Use `暂停接收` to pause background reads while keeping the serial port open, and `开始接收` to resume.
+6. Use `关闭串口` or `重连` for recovery.
 
 Serial reading runs in a background thread. GUI controls do not read the serial port directly.
 

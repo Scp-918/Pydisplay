@@ -4,6 +4,7 @@
 - 刷新 COM 口；
 - 选择端口和波特率；
 - 发出打开、关闭、重连信号。
+- 发出开始接收、暂停接收信号。
 
 它不直接持有 pyserial.Serial，也不读取串口数据。
 """
@@ -21,6 +22,8 @@ class SerialPanel(QGroupBox):
     open_requested = Signal(str, int)
     close_requested = Signal()
     reconnect_requested = Signal()
+    start_receiving_requested = Signal()
+    pause_receiving_requested = Signal()
 
     def __init__(self) -> None:
         super().__init__("串口连接")
@@ -28,22 +31,28 @@ class SerialPanel(QGroupBox):
         self.baud_combo = QComboBox()
         self.baud_combo.addItems(["460800", "230400", "115200", "921600"])
         self.status_label = QLabel("未连接")
+        self.receive_status_label = QLabel("未接收")
 
         refresh_button = QPushButton("刷新串口")
         open_button = QPushButton("打开串口")
         close_button = QPushButton("关闭串口")
         reconnect_button = QPushButton("重连")
+        start_receive_button = QPushButton("开始接收")
+        pause_receive_button = QPushButton("暂停接收")
         refresh_button.clicked.connect(self.refresh_ports)
         open_button.clicked.connect(self._emit_open)
         close_button.clicked.connect(self.close_requested)
         reconnect_button.clicked.connect(self.reconnect_requested)
+        start_receive_button.clicked.connect(self.start_receiving_requested)
+        pause_receive_button.clicked.connect(self.pause_receiving_requested)
 
         form = QFormLayout()
         form.addRow("端口", self.port_combo)
         form.addRow("波特率", self.baud_combo)
         form.addRow("状态", self.status_label)
+        form.addRow("数据接收", self.receive_status_label)
         buttons = QHBoxLayout()
-        for button in (refresh_button, open_button, close_button, reconnect_button):
+        for button in (refresh_button, open_button, close_button, reconnect_button, start_receive_button, pause_receive_button):
             buttons.addWidget(button)
         layout = QVBoxLayout(self)
         layout.addLayout(form)
@@ -59,6 +68,13 @@ class SerialPanel(QGroupBox):
 
     def set_status(self, text: str) -> None:
         self.status_label.setText(text)
+
+    def set_receiving_paused(self, paused: bool) -> None:
+        """显示当前后台数据接收是否暂停。"""
+        self.set_receive_status("已暂停" if paused else "接收中")
+
+    def set_receive_status(self, text: str) -> None:
+        self.receive_status_label.setText(text)
 
     def _emit_open(self) -> None:
         """把当前选择的端口和波特率通过 signal 发给主窗口。"""

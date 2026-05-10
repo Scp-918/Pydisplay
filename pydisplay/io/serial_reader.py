@@ -45,6 +45,7 @@ class SerialReader:
         self.poll_interval_s = poll_interval_s
         self.max_read_size = max_read_size
         self._stop_event = threading.Event()
+        self._pause_event = threading.Event()
         self._thread: threading.Thread | None = None
         self.bytes_received_total = 0
         self.last_rx_time_ns: int | None = None
@@ -61,6 +62,18 @@ class SerialReader:
         self._stop_event.set()
         if self._thread and self._thread.is_alive():
             self._thread.join(timeout_s)
+
+    def pause(self) -> None:
+        """暂停后台接收循环；串口保持打开，后续可用 resume() 继续接收。"""
+        self._pause_event.set()
+
+    def resume(self) -> None:
+        """恢复后台接收循环。"""
+        self._pause_event.clear()
+
+    @property
+    def is_paused(self) -> bool:
+        return self._pause_event.is_set()
 
     def is_alive(self) -> bool:
         return bool(self._thread and self._thread.is_alive())
@@ -98,6 +111,9 @@ class SerialReader:
     def _run(self) -> None:
         """线程主循环：读数据、捕获异常、按需停止。"""
         while not self._stop_event.is_set():
+            if self._pause_event.is_set():
+                time.sleep(self.poll_interval_s)
+                continue
             try:
                 self.read_once()
             except Exception as exc:

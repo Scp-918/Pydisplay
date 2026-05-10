@@ -44,6 +44,7 @@ class SerialStatus:
     baudrate: int | None = None
     last_error: str | None = None
     error_kind: SerialErrorKind | None = None
+    receive_paused: bool = True
 
 
 SerialFactory = Callable[..., object]
@@ -95,14 +96,21 @@ class SerialManager:
             )
             if start_reader:
                 self.reader.start()
-            self._set_state(SerialState.CONNECTED, port=port, baudrate=baudrate, error=None)
+            self._set_state(SerialState.CONNECTED, port=port, baudrate=baudrate, error=None, receive_paused=not start_reader)
             LOGGER.info("Serial connected: %s @ %s", port, baudrate)
         except Exception as exc:
             self.serial_obj = None
             self.reader = None
             self.writer = SerialWriter(None)
             LOGGER.exception("Serial open failed: %s @ %s", port, baudrate)
-            self._set_state(SerialState.ERROR, port=port, baudrate=baudrate, error=str(exc), kind=_classify_open_exception(exc))
+            self._set_state(
+                SerialState.ERROR,
+                port=port,
+                baudrate=baudrate,
+                error=str(exc),
+                kind=_classify_open_exception(exc),
+                receive_paused=True,
+            )
             if self._on_error:
                 self._on_error(exc)
 
@@ -111,7 +119,7 @@ class SerialManager:
             return
         port = self.status.port
         baudrate = self.status.baudrate
-        self._set_state(SerialState.DISCONNECTING, port=port, baudrate=baudrate, error=None)
+        self._set_state(SerialState.DISCONNECTING, port=port, baudrate=baudrate, error=None, receive_paused=True)
         try:
             if self.reader:
                 self.reader.stop()
@@ -119,7 +127,14 @@ class SerialManager:
                 self.serial_obj.close()
         except Exception as exc:
             LOGGER.exception("Serial close failed")
-            self._set_state(SerialState.ERROR, port=port, baudrate=baudrate, error=str(exc), kind=SerialErrorKind.UNKNOWN)
+            self._set_state(
+                SerialState.ERROR,
+                port=port,
+                baudrate=baudrate,
+                error=str(exc),
+                kind=SerialErrorKind.UNKNOWN,
+                receive_paused=True,
+            )
             if self._on_error:
                 self._on_error(exc)
             return
@@ -127,7 +142,7 @@ class SerialManager:
             self.reader = None
             self.serial_obj = None
             self.writer = SerialWriter(None)
-        self._set_state(SerialState.DISCONNECTED, port=port, baudrate=baudrate, error=None)
+        self._set_state(SerialState.DISCONNECTED, port=port, baudrate=baudrate, error=None, receive_paused=True)
 
     def reconnect(self, *, delay_s: float = 0.2) -> None:
         """按“关闭 -> 等待 -> 重新打开”的顺序重连。"""
@@ -144,6 +159,36 @@ class SerialManager:
     def is_connected(self) -> bool:
         return self.state == SerialState.CONNECTED and bool(self.serial_obj and getattr(self.serial_obj, "is_open", False))
 
+    def start_receiving(self) -> None:
+        """启动或继续后台数据接收；串口本身需要已经打开。"""
+        if not self.serial_obj or not bool(getattr(self.serial_obj, "is_open", False)):
+            self._set_state(
+                SerialState.ERROR,
+                error="serial port is not connected",
+                kind=SerialErrorKind.NOT_CONNECTED,
+                receive_paused=True,
+            )
+            return
+        if self.reader is None:
+            self.reader = SerialReader(
+                self.serial_obj,
+                port=self.status.port or "",
+                on_chunk=self._on_chunk,
+                on_error=self._handle_reader_error,
+            )
+        self.reader.resume()
+        if not self.reader.is_alive():
+            self.reader.start()
+        self._set_state(SerialState.CONNECTED, error=None, receive_paused=False)
+
+    def pause_receiving(self) -> None:
+        """暂停后台数据接收，但保持串口打开以便之后继续接收。"""
+        if not self.reader:
+            self._set_state(receive_paused=True)
+            return
+        self.reader.pause()
+        self._set_state(SerialState.CONNECTED, error=None, receive_paused=True)
+
     def write(self, data: bytes) -> WriteResult:
         return self.writer.write(data)
 
@@ -151,25 +196,27 @@ class SerialManager:
         return self.writer.write_control(metadata)
 
     def _handle_reader_error(self, exc: Exception) -> None:
-        self._set_state(SerialState.ERROR, error=str(exc), kind=SerialErrorKind.DEVICE_REMOVED)
+        self._set_state(SerialState.ERROR, error=str(exc), kind=SerialErrorKind.DEVICE_REMOVED, receive_paused=True)
         if self._on_error:
             self._on_error(exc)
 
     def _set_state(
         self,
-        state: SerialState,
+        state: SerialState | None = None,
         *,
         port: str | None = None,
         baudrate: int | None = None,
         error: str | None = None,
         kind: SerialErrorKind | None = None,
+        receive_paused: bool | None = None,
     ) -> None:
         self.status = SerialStatus(
-            state=state,
+            state=state if state is not None else self.status.state,
             port=port if port is not None else self.status.port,
             baudrate=baudrate if baudrate is not None else self.status.baudrate,
             last_error=error,
             error_kind=kind,
+            receive_paused=receive_paused if receive_paused is not None else self.status.receive_paused,
         )
         if self._on_state_changed:
             self._on_state_changed(self.status)

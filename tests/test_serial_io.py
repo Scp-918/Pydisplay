@@ -76,6 +76,35 @@ def test_serial_manager_open_close_with_injected_serial_factory() -> None:
     assert created[0].closed is True
 
 
+def test_serial_manager_can_start_and_pause_receiving() -> None:
+    created: list[FakeSerial] = []
+
+    def factory(**kwargs):
+        serial_obj = FakeSerial(port=kwargs["port"], baudrate=kwargs["baudrate"])
+        created.append(serial_obj)
+        return serial_obj
+
+    manager = SerialManager(serial_factory=factory)
+
+    manager.open("COM7", 460800, start_reader=False)
+    assert manager.status.receive_paused is True
+
+    manager.start_receiving()
+    assert manager.reader is not None
+    assert manager.reader.is_alive() is True
+    assert manager.status.receive_paused is False
+
+    manager.pause_receiving()
+    assert manager.reader.is_paused is True
+    assert manager.status.receive_paused is True
+
+    manager.start_receiving()
+    assert manager.reader.is_paused is False
+    assert manager.status.receive_paused is False
+
+    manager.close()
+
+
 def test_serial_reader_read_once_emits_raw_chunk() -> None:
     chunks: list[bytes] = []
     reader = SerialReader(FakeSerial(chunks=[b"abc"]), port="COM7", on_chunk=lambda chunk: chunks.append(chunk.data))
@@ -87,6 +116,30 @@ def test_serial_reader_read_once_emits_raw_chunk() -> None:
     assert chunk.data == b"abc"
     assert chunk.port == "COM7"
     assert chunks == [b"abc"]
+
+
+def test_serial_reader_pause_resume_stops_background_reads() -> None:
+    serial_obj = FakeSerial(chunks=[b"first", b"second"])
+    seen: list[bytes] = []
+
+    def on_chunk(chunk) -> None:
+        seen.append(chunk.data)
+        if len(seen) == 1:
+            reader.pause()
+
+    reader = SerialReader(serial_obj, port="COM7", on_chunk=on_chunk, poll_interval_s=0.001)
+
+    reader.start()
+    time.sleep(0.02)
+    assert seen == [b"first"]
+    assert reader.is_paused is True
+
+    reader.resume()
+    time.sleep(0.02)
+    reader.stop()
+
+    assert seen == [b"first", b"second"]
+    assert reader.is_alive() is False
 
 
 def test_serial_writer_rejects_disconnected_port() -> None:

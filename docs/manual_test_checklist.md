@@ -5,6 +5,7 @@
 - [ ] `conda activate Pydisplay_env`
 - [ ] `cd D:\Desktop\STM32G474\Pydisplay`
 - [ ] `python -m pydisplay`
+- [ ] Double-click `Start_Pydisplay.bat`.
 - [ ] GUI starts.
 - [ ] Chinese text displays correctly.
 
@@ -14,6 +15,8 @@
 - [ ] Select a COM port.
 - [ ] Select baudrate `460800`.
 - [ ] Click `打开串口`.
+- [ ] Click `暂停接收` and confirm serial port remains open.
+- [ ] Click `开始接收` and confirm data receiving resumes.
 - [ ] Click `关闭串口`.
 - [ ] Click `重连`.
 - [ ] Unplug HJ380 and confirm GUI does not crash.

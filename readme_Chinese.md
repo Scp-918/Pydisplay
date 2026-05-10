@@ -40,6 +40,14 @@ cd D:\Desktop\STM32G474\Pydisplay
 python -m pydisplay
 ```
 
+如果你不熟悉命令行，也可以直接在项目根目录中双击：
+
+```text
+Start_Pydisplay.bat
+```
+
+这个文件会自动进入当前项目目录，并通过 `conda run -n Pydisplay_env python -m pydisplay` 启动上位机。也就是说，平时使用时可以把它当作“启动按钮”。如果双击后提示找不到 `conda`，说明当前 Windows 环境变量里没有 conda，此时请改用 Anaconda Prompt 或 VS Code 终端执行上面的命令行启动方式。
+
 如果只是想确认程序能不能创建 GUI 主窗口，但不想真正打开长期运行窗口，可以运行：
 
 ```powershell
@@ -70,6 +78,7 @@ Pydisplay 上位机
 Pydisplay/
   README.md                  英文/简明项目说明
   readme_Chinese.md          当前中文详细说明
+  Start_Pydisplay.bat        Windows 双击启动脚本
   pyproject.toml             Python 项目和 pytest 配置
   AGENTS.md                  Codex 开发规则，不是运行代码
 
@@ -169,6 +178,17 @@ AB CD mode submode led_g led_r led_ir ppg_range pulse gyro_range accel_range EF 
 
 GUI 主线程不会阻塞读串口。串口读取由 `SerialReader` 后台线程处理，读到的数据以 `RawChunk` 形式交给 pipeline。
 
+串口连接区现在包含下面几个常用按钮：
+
+1. `刷新串口`：重新扫描电脑上的 COM 口；
+2. `打开串口`：打开选中的 HJ380 串口，并默认开始后台接收；
+3. `暂停接收`：暂停 `SerialReader` 后台读取循环，但不关闭串口；
+4. `开始接收`：从暂停状态恢复读取；
+5. `关闭串口`：停止读取并关闭串口；
+6. `重连`：关闭后重新打开上一次使用的串口。
+
+`暂停接收` 和 `暂停绘图` 是两件不同的事：`暂停接收` 会让程序暂时不再从串口读新数据；`暂停绘图` 只是不刷新曲线，后台接收和记录仍可继续。
+
 ## 8. Pipeline 数据流
 
 实时串口模式的数据流是：
@@ -261,6 +281,8 @@ GUI 主窗口在 `pydisplay/gui/main_window.py`。
 - 回放区；
 - 链路健康区；
 - 实时绘图区。
+
+串口连接区里除了 `打开串口`、`关闭串口`、`重连`，还提供 `开始接收` 和 `暂停接收`。这两个按钮只控制后台串口读取线程，不会修改协议解析规则，也不会直接操作绘图曲线。
 
 各区域对应文件：
 

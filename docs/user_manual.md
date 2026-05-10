@@ -10,11 +10,13 @@ cd D:\Desktop\STM32G474\Pydisplay
 python -m pydisplay
 ```
 
+Windows users can also double-click `Start_Pydisplay.bat` in the project root. It starts the app through the `Pydisplay_env` conda environment. If `conda` is not on PATH, use Anaconda Prompt and the command-line steps above.
+
 Use the left-side panels for serial connection, firmware control, recording, replay, and health status. The right side displays realtime plots.
 
 ## Serial Workflow
 
-Click `刷新串口`, choose the HJ380 COM port, keep baudrate `460800` unless firmware changes, then click `打开串口`. Use `关闭串口` before starting raw/csv replay.
+Click `刷新串口`, choose the HJ380 COM port, keep baudrate `460800` unless firmware changes, then click `打开串口`. Data receiving starts after the port is opened. Use `暂停接收` to pause background serial reads without closing the port, and `开始接收` to resume. Use `关闭串口` before starting raw/csv replay.
 
 ## Recording Workflow
 
