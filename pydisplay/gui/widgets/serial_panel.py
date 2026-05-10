@@ -12,7 +12,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Signal
-from PySide6.QtWidgets import QComboBox, QFormLayout, QGroupBox, QHBoxLayout, QLabel, QPushButton, QVBoxLayout
+from PySide6.QtWidgets import QComboBox, QFormLayout, QGridLayout, QGroupBox, QLabel, QPushButton, QVBoxLayout
 
 from pydisplay.io.port_discovery import list_serial_ports
 
@@ -27,9 +27,12 @@ class SerialPanel(QGroupBox):
 
     def __init__(self) -> None:
         super().__init__("串口连接")
+        self.setMaximumWidth(310)
         self.port_combo = QComboBox()
         self.baud_combo = QComboBox()
         self.baud_combo.addItems(["460800", "230400", "115200", "921600"])
+        self.port_combo.setMaximumWidth(175)
+        self.baud_combo.setMaximumWidth(120)
         self.status_label = QLabel("未连接")
         self.receive_status_label = QLabel("未接收")
 
@@ -47,14 +50,21 @@ class SerialPanel(QGroupBox):
         pause_receive_button.clicked.connect(self.pause_receiving_requested)
 
         form = QFormLayout()
+        form.setContentsMargins(0, 0, 0, 0)
+        form.setSpacing(4)
+        form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.FieldsStayAtSizeHint)
         form.addRow("端口", self.port_combo)
         form.addRow("波特率", self.baud_combo)
         form.addRow("状态", self.status_label)
         form.addRow("数据接收", self.receive_status_label)
-        buttons = QHBoxLayout()
-        for button in (refresh_button, open_button, close_button, reconnect_button, start_receive_button, pause_receive_button):
-            buttons.addWidget(button)
+        buttons = QGridLayout()
+        buttons.setSpacing(4)
+        for index, button in enumerate((refresh_button, open_button, close_button, reconnect_button, start_receive_button, pause_receive_button)):
+            button.setMaximumWidth(86)
+            buttons.addWidget(button, index // 3, index % 3)
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setSpacing(6)
         layout.addLayout(form)
         layout.addLayout(buttons)
 

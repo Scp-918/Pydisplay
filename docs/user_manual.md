@@ -14,9 +14,17 @@ Windows users can also double-click `Start_Pydisplay.bat` in the project root. I
 
 Use the left-side panels for serial connection, firmware control, recording, replay, and health status. The right side displays realtime plots.
 
+The left-side order is `串口连接 -> 下位机控制 -> 数据记录 -> 链路健康 -> 回放`. Replay is below health in the scrollable column, so routine monitoring keeps health visible and replay inputs stay lower until needed.
+
 ## Serial Workflow
 
 Click `刷新串口`, choose the HJ380 COM port, keep baudrate `460800` unless firmware changes, then click `打开串口`. Data receiving starts after the port is opened. Use `暂停接收` to pause background serial reads without closing the port, and `开始接收` to resume. Use `关闭串口` before starting raw/csv replay.
+
+## Plot Workflow
+
+The top of the plot panel contains `暂停绘图` and `X轴长度`. Use `X轴长度` to choose how many recent seconds are visible on the realtime x-axis. Curve visibility checkboxes are at the bottom of the plot scroll area.
+
+The plot grid uses `a,b,c / a,b,d / f,g,e`: `a` PPG, `b` Uh2/Uh3, `c` Uc2/Uc3, `d` UD1/UD2, `e` Uh/Uc channel 1/4, `f` ACC, and `g` GYRO. PPG, Uh2/Uh3, Uc2/Uc3, and UD include combined plots plus per-channel subplots.
 
 ## Recording Workflow
 

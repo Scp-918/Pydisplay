@@ -14,8 +14,12 @@ from pydisplay.services.health_monitor import HealthSnapshot
 class HealthPanel(QGroupBox):
     def __init__(self) -> None:
         super().__init__("链路健康")
+        self.setMaximumWidth(310)
         self.labels: dict[str, QLabel] = {}
         layout = QFormLayout(self)
+        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setSpacing(4)
+        layout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.FieldsStayAtSizeHint)
         for key, title in (
             ("serial_state", "串口状态"),
             ("recording_state", "记录状态"),
@@ -33,6 +37,8 @@ class HealthPanel(QGroupBox):
             ("last_error", "最近错误"),
         ):
             label = QLabel("--")
+            label.setMaximumWidth(170)
+            label.setWordWrap(True)
             self.labels[key] = label
             layout.addRow(title, label)
 

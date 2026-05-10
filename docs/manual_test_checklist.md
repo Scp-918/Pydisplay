@@ -8,6 +8,9 @@
 - [ ] Double-click `Start_Pydisplay.bat`.
 - [ ] GUI starts.
 - [ ] Chinese text displays correctly.
+- [ ] Left column is compact and leaves most width for plots.
+- [ ] Left column order is serial, control, recording, health, replay.
+- [ ] Replay panel can be reached by scrolling down below health.
 
 ## 2. Serial
 
@@ -36,13 +39,18 @@
 ## 4. Plots
 
 - [ ] PPG_G / PPG_R / PPG_IR curves display.
+- [ ] PPG combined plot and three PPG subplots display.
 - [ ] ACC_X / ACC_Y / ACC_Z curves display.
 - [ ] GYRO_X / GYRO_Y / GYRO_Z curves display.
-- [ ] Uh1..Uh4 curves display.
-- [ ] Uc1..Uc4 curves display.
-- [ ] UD1 / UD2 curves display.
+- [ ] Uh2 / Uh3 combined plot and independent Uh2 / Uh3 subplots display.
+- [ ] Uc2 / Uc3 combined plot and independent Uc2 / Uc3 subplots display.
+- [ ] UD1 / UD2 combined plot and independent UD1 / UD2 subplots display.
+- [ ] Uh/Uc channel 1/4 plot displays.
+- [ ] ACC and GYRO plots display in the bottom row.
 - [ ] Plot refresh defaults to about 20 Hz.
 - [ ] `暂停绘图` stops curve refresh while data can still be recorded.
+- [ ] `X轴长度` changes the realtime visible time window.
+- [ ] Curve visibility checkboxes are reachable by scrolling to the bottom of the plot area.
 - [ ] Curve visibility checkboxes hide/show curves.
 
 ## 5. Recording

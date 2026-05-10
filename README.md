@@ -44,6 +44,28 @@ conda run -n Pydisplay_env python -m pydisplay --smoke-test
 
 Serial reading runs in a background thread. GUI controls do not read the serial port directly.
 
+## GUI Layout
+
+The left control column is intentionally compact so the realtime plots get more screen space. Its order is now:
+
+```text
+串口连接 -> 下位机控制 -> 数据记录 -> 链路健康 -> 回放
+```
+
+The replay panel sits below the health panel in the scrollable left column. In normal monitoring you usually see serial/control/recording/health first; scroll down when you need replay inputs.
+
+The realtime plot header keeps only `暂停绘图` and an editable `X轴长度` value. Curve visibility checkboxes are moved to the bottom of the plot scroll area.
+
+The plot area uses a 3x3 layout:
+
+```text
+a, b, c
+a, b, d
+f, g, e
+```
+
+`a` is 3-color PPG, `b` is Uh channel 2/3, `c` is Uc channel 2/3, `d` is UD1/UD2, `e` is Uh/Uc channel 1/4, `f` is ACC, and `g` is GYRO. PPG, Uh2/3, Uc2/3, and UD each include a combined plot plus per-channel subplots sharing the x-axis.
+
 ## Control Commands
 
 The control panel builds the confirmed 13-byte firmware control frame through `pydisplay.protocol.commands`. Supported fields:

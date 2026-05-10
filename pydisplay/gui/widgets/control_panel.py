@@ -19,10 +19,12 @@ class ControlPanel(QGroupBox):
 
     def __init__(self) -> None:
         super().__init__("下位机控制")
+        self.setMaximumWidth(310)
         self.k_spin = QDoubleSpinBox()
         self.k_spin.setRange(-1000.0, 1000.0)
         self.k_spin.setDecimals(6)
         self.k_spin.setValue(5.0)
+        self.k_spin.setMaximumWidth(120)
         self.k_spin.valueChanged.connect(self.k_value_changed)
 
         self.mode_combo = _combo([("MultiLED", 0x01), ("HR", 0x02), ("SpO2", 0x03)])
@@ -36,9 +38,13 @@ class ControlPanel(QGroupBox):
         self.accel_range = _combo([("2 g", 0x01), ("4 g", 0x02), ("8 g", 0x03), ("16 g", 0x04)])
 
         send_button = QPushButton("发送控制命令")
+        send_button.setMaximumWidth(150)
         send_button.clicked.connect(self._emit_command)
 
         form = QFormLayout()
+        form.setContentsMargins(0, 0, 0, 0)
+        form.setSpacing(4)
+        form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.FieldsStayAtSizeHint)
         for label, widget in (
             ("k 值", self.k_spin),
             ("PPG mode", self.mode_combo),
@@ -53,6 +59,8 @@ class ControlPanel(QGroupBox):
         ):
             form.addRow(label, widget)
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setSpacing(6)
         layout.addLayout(form)
         layout.addWidget(send_button)
 
@@ -75,6 +83,7 @@ class ControlPanel(QGroupBox):
 
 def _combo(items: list[tuple[str, int]]) -> QComboBox:
     combo = QComboBox()
+    combo.setMaximumWidth(150)
     for label, value in items:
         combo.addItem(label, value)
     return combo
@@ -84,4 +93,5 @@ def _spin(minimum: int, maximum: int, value: int) -> QSpinBox:
     spin = QSpinBox()
     spin.setRange(minimum, maximum)
     spin.setValue(value)
+    spin.setMaximumWidth(90)
     return spin

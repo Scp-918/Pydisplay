@@ -17,7 +17,7 @@ from __future__ import annotations
 import time
 
 from PySide6.QtCore import QTimer, Qt
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QMainWindow, QMessageBox, QScrollArea, QSplitter, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QHBoxLayout, QMainWindow, QMessageBox, QScrollArea, QSplitter, QVBoxLayout, QWidget
 
 from pydisplay.config import WINDOW_TITLE
 from pydisplay.gui.widgets.control_panel import ControlPanel
@@ -84,23 +84,30 @@ class MainWindow(QMainWindow):
     def _build_layout(self) -> None:
         """创建左侧控制区和右侧绘图区。"""
         left = QWidget()
+        left.setMinimumWidth(260)
+        left.setMaximumWidth(320)
         left_layout = QVBoxLayout(left)
+        left_layout.setContentsMargins(6, 6, 6, 6)
+        left_layout.setSpacing(6)
         left_layout.addWidget(self.serial_panel)
         left_layout.addWidget(self.control_panel)
         left_layout.addWidget(self.recorder_panel)
-        left_layout.addWidget(self.replay_panel)
         left_layout.addWidget(self.health_panel)
+        left_layout.addWidget(self.replay_panel)
         left_layout.addStretch(1)
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setWidget(left)
+        scroll.setMinimumWidth(270)
+        scroll.setMaximumWidth(340)
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
         splitter.addWidget(scroll)
         splitter.addWidget(self.plot_panel)
         splitter.setStretchFactor(0, 0)
         splitter.setStretchFactor(1, 1)
+        splitter.setSizes([300, 1060])
 
         central = QWidget(self)
         layout = QHBoxLayout(central)
