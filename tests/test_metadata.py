@@ -4,7 +4,7 @@ import json
 import math
 
 from pydisplay.protocol.models import DecodedSample
-from pydisplay.recorder.csv_writer import CSV_FIELDS, DecodedCsvWriter
+from pydisplay.recorder.csv_writer import CSV_FIELDS, DecodedCsvWriter, sample_to_csv_row
 from pydisplay.recorder.metadata import build_metadata, write_metadata
 
 
@@ -12,8 +12,12 @@ def sample() -> DecodedSample:
     return DecodedSample(
         timestamp_pc_ns=100,
         relative_time_s=0.1,
-        frame_seq=None,
+        frame_seq=42,
         sample_seq=1,
+        absolute_seq_u64=1000,
+        seq_gap=1,
+        lost_before=0,
+        segment_id=0,
         ppg_g=1,
         ppg_r=2,
         ppg_ir=3,
@@ -43,8 +47,23 @@ def test_decoded_csv_writer_outputs_expected_fields(tmp_path) -> None:
 
     lines = path.read_text(encoding="utf-8").splitlines()
     assert lines[0].split(",") == CSV_FIELDS
+    assert {"absolute_seq_u64", "seq_gap", "lost_before", "segment_id"} <= set(CSV_FIELDS)
     assert "0.25" in lines[1]
     assert "nan" in lines[1]
+
+
+def test_sequence_csv_fields_use_empty_string_for_none_values() -> None:
+    item = sample()
+    item.frame_seq = None
+    item.absolute_seq_u64 = None
+
+    row = sample_to_csv_row(item)
+
+    assert row["frame_seq"] == ""
+    assert row["absolute_seq_u64"] == ""
+    assert row["seq_gap"] == 1
+    assert row["lost_before"] == 0
+    assert row["segment_id"] == 0
 
 
 def test_metadata_contains_protocol_recording_and_csv_fields(tmp_path) -> None:
@@ -63,6 +82,6 @@ def test_metadata_contains_protocol_recording_and_csv_fields(tmp_path) -> None:
     assert loaded["firmware"]["branch"] == "Single"
     assert loaded["serial"]["port"] == "COM7"
     assert loaded["protocol"]["frame_header"] == "AA BB"
-    assert loaded["protocol"]["frame_length"] == 49
+    assert loaded["protocol"]["frame_length"] == 51
     assert loaded["protocol"]["raw_bin_format_version"] == 1
     assert "UD1" in loaded["csv_fields"]

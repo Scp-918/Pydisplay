@@ -136,8 +136,10 @@ class MainWindow(QMainWindow):
         self.health.set_states(serial_state=self._serial_state_text())
 
     def _close_serial(self) -> None:
+        if getattr(self.recorder.state, "value", None) == "recording":
+            self._stop_recording()
         self.serial_manager.close()
-        self.health.set_states(serial_state=self._serial_state_text())
+        self.health.set_states(serial_state=self._serial_state_text(), recording_state=self.recorder.state.name)
 
     def _reconnect_serial(self) -> None:
         self.serial_manager.reconnect()
@@ -189,7 +191,13 @@ class MainWindow(QMainWindow):
         self.health.set_states(recording_state=self.recorder.state.name)
 
     def _stop_recording(self) -> None:
-        self.recorder.stop()
+        try:
+            self.recorder.stop()
+        except Exception as exc:
+            self.recorder_panel.set_status(f"记录停止失败：{exc}")
+            self._show_error("记录停止失败", str(exc))
+            self.health.set_states(recording_state=self.recorder.state.name)
+            return
         self.recorder_panel.set_status("记录已停止")
         self.health.set_states(recording_state=self.recorder.state.name)
 

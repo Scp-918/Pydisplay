@@ -17,8 +17,12 @@ def sample(index: int, t: float = 0.0) -> DecodedSample:
     return DecodedSample(
         timestamp_pc_ns=index,
         relative_time_s=t,
-        frame_seq=None,
+        frame_seq=index & 0xFFFF,
         sample_seq=index,
+        absolute_seq_u64=index,
+        seq_gap=1 if index else 0,
+        lost_before=0,
+        segment_id=0,
         ppg_g=1,
         ppg_r=2,
         ppg_ir=3,
@@ -65,6 +69,11 @@ def test_read_decoded_csv_restores_samples(tmp_path) -> None:
 
     assert [item.sample_seq for item in samples] == [1, 2]
     assert samples[1].relative_time_s == pytest.approx(0.01)
+    assert samples[1].frame_seq == 2
+    assert samples[1].absolute_seq_u64 == 2
+    assert samples[1].seq_gap == 1
+    assert samples[1].lost_before == 0
+    assert samples[1].segment_id == 0
     assert samples[0].source == "firmware"
 
 

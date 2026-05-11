@@ -36,6 +36,10 @@ def _row_to_sample(row: dict[str, str]) -> DecodedSample:
             relative_time_s=_float(row["relative_time_s"]),
             timestamp_pc_ns=int(float(row["timestamp_pc_ns"])),
             frame_seq=_optional_int(row["frame_seq"]),
+            absolute_seq_u64=_optional_int(row["absolute_seq_u64"]),
+            seq_gap=_int(row["seq_gap"]),
+            lost_before=_int(row["lost_before"]),
+            segment_id=_int(row["segment_id"]),
             sample_seq=_optional_int(row["sample_seq"]),
             ppg_g=_float(row["PPG_G"]),
             ppg_r=_float(row["PPG_R"]),
@@ -66,6 +70,12 @@ def _row_to_sample(row: dict[str, str]) -> DecodedSample:
 def _optional_int(value: str) -> int | None:
     if value == "":
         return None
+    return int(float(value))
+
+
+def _int(value: str) -> int:
+    if value == "":
+        return 0
     return int(float(value))
 
 

@@ -104,6 +104,10 @@ class DecodedSample:
     uc4: float
     ud1: float
     ud2: float
+    absolute_seq_u64: int | None = None
+    seq_gap: int = 0
+    lost_before: int = 0
+    segment_id: int = 0
     parser_valid: bool = True
     source: str = "firmware"
     warnings: list[str] = field(default_factory=list)

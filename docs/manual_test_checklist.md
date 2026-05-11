@@ -34,6 +34,10 @@
 - [ ] Bad frame rate updates.
 - [ ] Bad frame count updates.
 - [ ] Bad frame ratio updates.
+- [ ] Lost frame count updates when firmware frame_seq skips.
+- [ ] Lost frame ratio updates.
+- [ ] Duplicate frame_seq count updates for repeated frame_seq.
+- [ ] Sequence reset/reorder count updates for large frame_seq deltas.
 - [ ] resync count updates.
 - [ ] Serial buffer bytes update.
 - [ ] Parser buffer bytes update.
@@ -65,12 +69,15 @@
 - [ ] Set record path.
 - [ ] Set experiment name.
 - [ ] Click `开始记录`.
+- [ ] Click `暂停接收` and confirm recording remains active.
+- [ ] Click `关闭串口` while recording and confirm recording stops cleanly.
 - [ ] Click `停止记录`.
 - [ ] Session directory is created.
 - [ ] `raw_frames.bin` is created.
 - [ ] `decoded.csv` is created.
 - [ ] `metadata.json` is created.
 - [ ] `metadata.json` contains start and end time.
+- [ ] `decoded.csv` contains `frame_seq`, `absolute_seq_u64`, `seq_gap`, `lost_before`, and `segment_id`.
 
 ## 6. Replay
 

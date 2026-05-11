@@ -21,6 +21,7 @@ from pydisplay.io.serial_reader import RawChunk
 from pydisplay.protocol.decoder import decode_frame
 from pydisplay.protocol.models import DecodeConfig, DecodedSample
 from pydisplay.protocol.parser import FrameParser
+from pydisplay.protocol.sequence import FrameSequenceTracker
 from pydisplay.recorder.recorder_worker import RecorderWorker
 from .data_bus import DataBus
 from .health_monitor import HealthMonitor
@@ -43,6 +44,7 @@ class DataPipeline:
         on_decoded: Callable[[DecodedSample], None] | None = None,
     ) -> None:
         self.parser = parser or FrameParser()
+        self.sequence_tracker = FrameSequenceTracker()
         self.decode_config = decode_config
         self.recorder = recorder
         self.bus = bus or DataBus()
@@ -65,6 +67,20 @@ class DataPipeline:
                 LOGGER.exception("Decode failed")
                 self.health.add_decode_error(str(exc))
                 continue
+            sequence = self.sequence_tracker.update(frame.frame_seq)
+            sample.absolute_seq_u64 = sequence.absolute_seq_u64
+            sample.seq_gap = sequence.seq_gap
+            sample.lost_before = sequence.lost_before
+            sample.segment_id = sequence.segment_id
+            if sequence.is_duplicate:
+                sample.warnings.append("duplicate firmware frame_seq")
+            if sequence.is_reset:
+                sample.warnings.append("firmware frame_seq reset or severe reorder")
+            self.health.add_sequence_result(
+                lost_before=sequence.lost_before,
+                duplicate=sequence.is_duplicate,
+                reset=sequence.is_reset,
+            )
             self.health.add_decoded_sample()
             self.bus.put_decoded_for_plot(sample)
             if self.recorder and self.recorder.state.value == "recording":

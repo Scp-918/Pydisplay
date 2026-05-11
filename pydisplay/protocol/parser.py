@@ -23,6 +23,7 @@ from .constants import (
     CHECKSUM_OFFSET,
     FRAME_HEADER,
     FRAME_LENGTH,
+    FRAME_SEQ_OFFSET,
     FRAME_TAIL,
     PAYLOAD_END_OFFSET,
     PAYLOAD_START_OFFSET,
@@ -75,13 +76,14 @@ class FrameParser:
             del self._buffer[:FRAME_LENGTH]
             self.stats.total_frames += 1
             self.stats.valid_frames += 1
-            # 固件没有帧序号；sample_seq 使用 PC 端解析出的有效帧序号。
+            # 固件源端帧序号位于 checksum 后，uint16 little-endian；sample_seq 仍是 PC 端有效帧计数。
+            frame_seq = candidate[FRAME_SEQ_OFFSET] | (candidate[FRAME_SEQ_OFFSET + 1] << 8)
             frames.append(
                 ParsedFrame(
                     timestamp_ns=timestamp,
                     raw=candidate,
                     payload=candidate[PAYLOAD_START_OFFSET : PAYLOAD_END_OFFSET + 1],
-                    frame_seq=None,
+                    frame_seq=frame_seq,
                     sample_seq=self.stats.valid_frames,
                     checksum_ok=True,
                 )

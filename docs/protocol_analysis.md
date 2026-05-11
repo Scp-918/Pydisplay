@@ -6,7 +6,7 @@
 - Branch: Single
 - Commit: `3714333572dc985c407dbb680183785cc0b92b66`
 - Local analysis path: `.codex_firmware/PulseTIMR2`
-- Analysis date: 2026-05-10
+- Analysis date: 2026-05-10; sequence protocol update applied 2026-05-11
 - Target MCU: STM32G474
 - Build system: CMake
 
@@ -29,14 +29,14 @@ Searched required protocol and sensor keywords including `0xAA`, `0xBB`, `0xCC`,
 | Data link | USART1 through BLE transparent serial, target baudrate 460800 | `README.md:205`, `Core/Src/usart.c:43-44`, `Core/Inc/ble.h:16` |
 | Data frame header | `0xAA 0xBB` | `Core/Inc/ble_comm.h:36-37`, `Core/Src/ble_comm.c:72-73` |
 | Data frame tail | `0xCC` | `Core/Inc/ble_comm.h:38`, `Core/Src/ble_comm.c:122-123` |
-| Data frame length | Fixed 49 bytes | `Core/Inc/ble_comm.h:27`, `README.md:205` |
+| Data frame length | Fixed 51 bytes in the 2026-05-11 sequence-number protocol update | User-supplied firmware update format, based on `https://github.com/Scp-918/PulseTIMR2/tree/Single` |
 | Payload length | 45 bytes, byte 2 through byte 46 | `Core/Inc/ble_comm.h:44-59`, `Core/Src/ble_comm.c:75-114` |
 | Checksum | XOR of bytes `[2..46]`, header and tail excluded | `Core/Inc/ble_comm.h:61-66`, `Core/Src/ble_comm.c:115-120`, `README.md:213` |
 | Byte order | Data payload values are little-endian in BLE frame | `Core/Src/ble_comm.c:27-52`, `README.md:207` |
-| Frame sequence | Not present in data frame | No sequence field in `Core/Inc/ble_comm.h:41-62` |
+| Frame sequence | Present at bytes 48..49 as uint16 little-endian source frame sequence | User-supplied 2026-05-11 protocol update |
 | Firmware timestamp | Not present in data frame | No timestamp field in `Core/Inc/ble_comm.h:41-62`; search found only timeout uses of `HAL_GetTick` |
 | Nominal output cadence | 4-phase 400 Hz state machine produces one fused frame per phase-4 cycle, intended 100 Hz | `Core/Src/main.c:831-835`, `Core/Src/main.c:883-887` |
-| Active TX path | Main loop packs one 49-byte frame and sends it by UART DMA when pending | `Core/Src/main.c:1035-1040` |
+| Active TX path | Main loop packs one data frame and sends it by UART DMA when pending; current upper-computer parser expects the 51-byte frame with frame_seq | `Core/Src/main.c:1035-1040`; user-supplied 2026-05-11 protocol update |
 | Control frame | 13 bytes, header `0xAB 0xCD`, tail `0xEF 0xFA`, no checksum field found | `Core/Src/main.c:64-78`, `Core/Src/main.c:451-504`, `README.md:216-230` |
 | Control ACK | Confirmed no ACK/NACK response for sensor parameter frame | User confirmation 2026-05-10; `Core/Src/main.c:517-530`, `Core/Src/main.c:1164-1195`; only internal `g_sensor_cfg_apply_error` |
 | Protocol version | Not found | `rg protocol_version/PROTOCOL_VERSION/version` found no frame version definition |
@@ -49,7 +49,8 @@ Single data frame:
 0..1   header: 0xAA 0xBB
 2..46  payload
 47     checksum: XOR(bytes 2..46)
-48     tail: 0xCC
+48..49 frame_seq: uint16 little-endian source frame sequence
+50     tail: 0xCC
 ```
 
 Payload fields:
@@ -74,7 +75,8 @@ Payload fields:
 | 43 | ACC_Y | 2 | int16 | signed | little | same as above | same as above |
 | 45 | ACC_Z | 2 | int16 | signed | little | same as above | same as above |
 | 47 | checksum | 1 | uint8 | unsigned | n/a | XOR of bytes 2..46 | `Core/Src/ble_comm.c:115-120` |
-| 48 | tail | 1 | uint8 | unsigned | n/a | `0xCC` | `Core/Src/ble_comm.c:122-123` |
+| 48 | frame_seq | 2 | uint16 | unsigned | little | source-side firmware frame sequence; not included in checksum | User-supplied 2026-05-11 protocol update |
+| 50 | tail | 1 | uint8 | unsigned | n/a | `0xCC` | User-supplied 2026-05-11 protocol update |
 
 Important mapping note: firmware order for IMU is `Gx, Gy, Gz, Ax, Ay, Az`, not acceleration first. The Python decoder should expose both source order and user-facing names clearly.
 

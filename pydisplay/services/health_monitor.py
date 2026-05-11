@@ -44,6 +44,10 @@ class HealthSnapshot:
     plot_queue_size: int
     record_queue_size: int
     record_error_count: int
+    lost_frames: int
+    lost_frame_ratio: float
+    duplicate_seq_count: int
+    seq_reset_count: int
     last_error: str | None
 
 
@@ -63,6 +67,10 @@ class HealthMonitor:
         self.plot_queue_size = 0
         self.record_queue_size = 0
         self.record_error_count = 0
+        self.lost_frames = 0
+        self.seq_checked_frames = 0
+        self.duplicate_seq_count = 0
+        self.seq_reset_count = 0
         self.serial_state = "DISCONNECTED"
         self.recording_state = "IDLE"
         self.replay_state = "IDLE"
@@ -89,6 +97,14 @@ class HealthMonitor:
 
     def add_decoded_sample(self) -> None:
         self.decoded_samples += 1
+
+    def add_sequence_result(self, *, lost_before: int, duplicate: bool, reset: bool) -> None:
+        self.seq_checked_frames += 1
+        self.lost_frames += lost_before
+        if duplicate:
+            self.duplicate_seq_count += 1
+        if reset:
+            self.seq_reset_count += 1
 
     def add_decode_error(self, message: str) -> None:
         self.decode_error_count += 1
@@ -136,6 +152,9 @@ class HealthMonitor:
         plot_fps = 0.0 if self._last_ns is None else (self.plot_frames - self._last_plot_frames) / elapsed
         total_frames = self.valid_frames + self.bad_frames
         bad_frame_ratio = self.bad_frames / total_frames if total_frames else 0.0
+        # 口径：丢包比例 = 估计丢失源端帧数 / (估计丢失源端帧数 + parser 有效帧数)。
+        # 这样实时显示与用户实际收到的有效帧计数保持一致，不把坏帧统计混入蓝牙完整丢包率。
+        lost_frame_ratio = self.lost_frames / max(self.lost_frames + self.valid_frames, 1)
 
         snapshot = HealthSnapshot(
             timestamp_ns=now_ns,
@@ -158,6 +177,10 @@ class HealthMonitor:
             plot_queue_size=self.plot_queue_size,
             record_queue_size=self.record_queue_size,
             record_error_count=self.record_error_count,
+            lost_frames=self.lost_frames,
+            lost_frame_ratio=lost_frame_ratio,
+            duplicate_seq_count=self.duplicate_seq_count,
+            seq_reset_count=self.seq_reset_count,
             last_error=self.last_error,
         )
         self._last_ns = now_ns

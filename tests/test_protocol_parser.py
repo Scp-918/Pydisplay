@@ -5,17 +5,17 @@ from pydisplay.protocol.parser import FrameParser
 
 HEADER = b"\xAA\xBB"
 TAIL = b"\xCC"
-FRAME_LENGTH = 49
+FRAME_LENGTH = 51
 PAYLOAD_LENGTH = 45
 
 
-def build_frame(payload: bytes | None = None) -> bytes:
+def build_frame(payload: bytes | None = None, *, frame_seq: int = 0) -> bytes:
     payload = payload if payload is not None else bytes(range(1, PAYLOAD_LENGTH + 1))
     assert len(payload) == PAYLOAD_LENGTH
     checksum = 0
     for byte in payload:
         checksum ^= byte
-    return HEADER + payload + bytes([checksum]) + TAIL
+    return HEADER + payload + bytes([checksum]) + frame_seq.to_bytes(2, "little") + TAIL
 
 
 def test_parser_emits_single_valid_frame() -> None:
@@ -27,9 +27,10 @@ def test_parser_emits_single_valid_frame() -> None:
     assert len(frames) == 1
     assert frames[0].raw == frame
     assert frames[0].payload == frame[2:47]
+    assert frames[0].frame_seq == 0
     assert frames[0].timestamp_ns == 123
     assert frames[0].checksum_ok is True
-    assert parser.stats.total_bytes == FRAME_LENGTH
+    assert parser.stats.total_bytes == 51
     assert parser.stats.total_frames == 1
     assert parser.stats.valid_frames == 1
     assert parser.stats.bad_frames == 0
@@ -78,7 +79,7 @@ def test_parser_recovers_after_bad_checksum() -> None:
 def test_parser_recovers_after_bad_tail() -> None:
     parser = FrameParser()
     bad = bytearray(build_frame(bytes([5]) * PAYLOAD_LENGTH))
-    bad[48] = 0x00
+    bad[50] = 0x00
     good = build_frame(bytes([6]) * PAYLOAD_LENGTH)
 
     frames = parser.feed(bytes(bad) + good)
@@ -87,6 +88,18 @@ def test_parser_recovers_after_bad_tail() -> None:
     assert parser.stats.bad_frames == 1
     assert parser.stats.tail_errors == 1
     assert parser.stats.resync_count == 1
+
+
+def test_parser_extracts_uint16_little_endian_frame_seq() -> None:
+    parser = FrameParser()
+    frame = build_frame(frame_seq=0x1234)
+
+    frames = parser.feed(frame)
+
+    assert len(frames) == 1
+    assert len(frames[0].raw) == 51
+    assert frames[0].frame_seq == 0x1234
+    assert frames[0].sample_seq == 1
 
 
 def test_parser_caps_buffer_growth() -> None:

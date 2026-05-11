@@ -12,6 +12,7 @@ def test_health_monitor_calculates_rates_from_counter_deltas() -> None:
     monitor.add_raw_bytes(100)
     monitor.update_parser_stats(stats)
     monitor.add_decoded_sample()
+    monitor.add_sequence_result(lost_before=2, duplicate=False, reset=False)
     monitor.add_plot_frame()
     monitor.set_queue_sizes(plot_queue_size=4, record_queue_size=5)
 
@@ -24,6 +25,10 @@ def test_health_monitor_calculates_rates_from_counter_deltas() -> None:
     assert snapshot.resync_count == 1
     assert snapshot.parser_buffer_bytes == 3
     assert snapshot.decoded_sample_rate == 1
+    assert snapshot.lost_frames == 2
+    assert snapshot.lost_frame_ratio == 2 / 12
+    assert snapshot.duplicate_seq_count == 0
+    assert snapshot.seq_reset_count == 0
     assert snapshot.plot_fps == 1
     assert snapshot.plot_queue_size == 4
     assert snapshot.record_queue_size == 5
@@ -40,3 +45,16 @@ def test_health_monitor_keeps_status_and_errors() -> None:
     assert snapshot.recording_state == "RECORDING"
     assert snapshot.replay_state == "IDLE"
     assert snapshot.last_error == "checksum error"
+
+
+def test_health_monitor_counts_duplicate_and_reset_sequence_events() -> None:
+    monitor = HealthMonitor()
+
+    monitor.add_sequence_result(lost_before=0, duplicate=True, reset=False)
+    monitor.add_sequence_result(lost_before=0, duplicate=False, reset=True)
+
+    snapshot = monitor.snapshot(now_ns=1)
+
+    assert snapshot.lost_frames == 0
+    assert snapshot.duplicate_seq_count == 1
+    assert snapshot.seq_reset_count == 1

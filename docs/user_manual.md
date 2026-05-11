@@ -36,7 +36,7 @@ The control panel starts with the firmware default parameter array from `Core/Sr
 
 ## Recording Workflow
 
-Set the record path and experiment name, then click `开始记录`. Stop recording before closing the application. Each session contains `raw_frames.bin`, `decoded.csv`, and `metadata.json`.
+Set the record path and experiment name, then click `开始记录`. Clicking `关闭串口` while recording automatically stops and finalizes the recording; `暂停接收` only pauses serial reads and keeps the recorder state unchanged. Each session contains `raw_frames.bin`, `decoded.csv`, and `metadata.json`.
 
 ## Replay Workflow
 

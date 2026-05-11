@@ -51,6 +51,6 @@ def test_health_panel_widens_realtime_metric_fields(qtbot) -> None:
     panel = HealthPanel()
     qtbot.addWidget(panel)
 
-    for key in ("valid_frame_rate", "parser_buffer_bytes", "last_error"):
+    for key in ("valid_frame_rate", "parser_buffer_bytes", "lost_frames", "lost_frame_ratio", "last_error"):
         assert panel.labels[key].minimumWidth() >= 210
     assert panel.labels["last_error"].wordWrap() is True

@@ -3,10 +3,10 @@
 本文件中的常量都必须来自 `docs/protocol_analysis.md`，不能凭经验猜。
 上位机 parser、decoder、command encoder 都依赖这里：
 
-- 数据帧：`AA BB` 开头，固定 49 字节，`CC` 结尾；
+- 数据帧：`AA BB` 开头，固定 51 字节，`CC` 结尾；
 - payload：byte 2..46；
-- checksum：payload 全部字节 XOR；
-- 字段 offset：PPG、IMU、Uh/Uc 等在 49 字节帧中的位置；
+- checksum：payload 全部字节 XOR，frame_seq 不参与；
+- 字段 offset：PPG、IMU、Uh/Uc 等在 51 字节帧中的位置；ADC/PPG/IMU 旧偏移保持不变。
 - 控制帧：`AB CD ... EF FA`，共 13 字节。
 
 如果以后固件协议变化，先更新协议分析文档，再同步改这个文件和测试。
@@ -17,10 +17,11 @@ from __future__ import annotations
 # 数据帧固定结构：header + payload + checksum + tail。
 FRAME_HEADER = b"\xAA\xBB"
 FRAME_TAIL = b"\xCC"
-FRAME_LENGTH = 49
+FRAME_LENGTH = 51
 PAYLOAD_LENGTH = 45
 CHECKSUM_OFFSET = 47
-TAIL_OFFSET = 48
+FRAME_SEQ_OFFSET = 48
+TAIL_OFFSET = 50
 PAYLOAD_START_OFFSET = 2
 PAYLOAD_END_OFFSET = 46
 BYTE_ORDER = "little"

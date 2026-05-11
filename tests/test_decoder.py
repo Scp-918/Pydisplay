@@ -54,16 +54,16 @@ def build_payload(
     return bytes(payload)
 
 
-def build_parsed_frame(payload: bytes, timestamp_ns: int = 1_000_000_000) -> ParsedFrame:
+def build_parsed_frame(payload: bytes, timestamp_ns: int = 1_000_000_000, frame_seq: int = 0x0201) -> ParsedFrame:
     checksum = 0
     for byte in payload:
         checksum ^= byte
-    raw = HEADER + payload + bytes([checksum]) + TAIL
+    raw = HEADER + payload + bytes([checksum]) + frame_seq.to_bytes(2, "little") + TAIL
     return ParsedFrame(
         timestamp_ns=timestamp_ns,
         raw=raw,
         payload=payload,
-        frame_seq=None,
+        frame_seq=frame_seq,
         sample_seq=7,
         checksum_ok=True,
     )
@@ -77,7 +77,7 @@ def test_decoder_outputs_ppg_imu_voltage_and_ud_values() -> None:
 
     assert sample.timestamp_pc_ns == 1_500_000_000
     assert sample.relative_time_s == pytest.approx(0.5)
-    assert sample.frame_seq is None
+    assert sample.frame_seq == 0x0201
     assert sample.sample_seq == 7
     assert sample.ppg_g == 1000
     assert sample.ppg_r == 2000

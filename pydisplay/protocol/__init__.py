@@ -9,5 +9,6 @@
 
 from .decoder import decode_frame
 from .parser import FrameParser
+from .sequence import FrameSequenceTracker, SequenceResult
 
-__all__ = ["FrameParser", "decode_frame"]
+__all__ = ["FrameParser", "FrameSequenceTracker", "SequenceResult", "decode_frame"]
