@@ -9,7 +9,7 @@ PlotPanel 保存 ring buffer，并通过 QTimer 默认约 20 Hz 刷新 PyQtGraph
 from __future__ import annotations
 
 from PySide6.QtCore import QTimer
-from PySide6.QtWidgets import QCheckBox, QDoubleSpinBox, QGridLayout, QGroupBox, QHBoxLayout, QLabel, QScrollArea, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QCheckBox, QDoubleSpinBox, QGridLayout, QGroupBox, QHBoxLayout, QLabel, QPushButton, QScrollArea, QVBoxLayout, QWidget
 
 from pydisplay.config import DEFAULT_PLOT_WINDOW_SECONDS
 from pydisplay.gui.plots.curve_config import CURVES
@@ -35,6 +35,8 @@ class PlotPanel(QGroupBox):
         controls = QHBoxLayout()
         self.pause_checkbox = QCheckBox("暂停绘图")
         self.pause_checkbox.toggled.connect(self.set_paused)
+        self.clear_button = QPushButton("清空图表")
+        self.clear_button.clicked.connect(self.clear_plots)
         self.window_spin = QDoubleSpinBox()
         self.window_spin.setRange(1.0, 60.0)
         self.window_spin.setDecimals(1)
@@ -44,6 +46,7 @@ class PlotPanel(QGroupBox):
         self.window_spin.setMaximumWidth(100)
         self.window_spin.valueChanged.connect(self.set_window_seconds)
         controls.addWidget(self.pause_checkbox)
+        controls.addWidget(self.clear_button)
         controls.addWidget(QLabel("X轴长度"))
         controls.addWidget(self.window_spin)
         controls.addStretch(1)
@@ -101,6 +104,12 @@ class PlotPanel(QGroupBox):
         self.window_seconds = float(window_seconds)
         if self.plot_manager:
             self.plot_manager.set_window_seconds(self.window_seconds)
+
+    def clear_plots(self) -> None:
+        """清空当前绘图缓存；只影响界面显示，不影响串口接收和后台记录。"""
+        self.buffer.clear()
+        if self.plot_manager:
+            self.plot_manager.clear()
 
     def refresh(self) -> None:
         """定时刷新曲线；只调用 PlotDataItem.setData()。"""

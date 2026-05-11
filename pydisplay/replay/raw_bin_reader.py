@@ -26,11 +26,11 @@ def read_raw_replay_items(
 ) -> list[RawReplayItem]:
     """读取 raw bin 并转换成 ReplayWorker 可处理的 RawReplayItem 列表。"""
     _header, records = read_raw_bin(path)
-    allowed = include_types or {
-        RecordType.RAW_SERIAL_CHUNK,
-        RecordType.VALID_RAW_FRAME,
-        RecordType.BAD_FRAME_FRAGMENT,
-    }
+    if include_types is None:
+        has_raw_chunks = any(record.record_type == RecordType.RAW_SERIAL_CHUNK for record in records)
+        allowed = {RecordType.RAW_SERIAL_CHUNK} if has_raw_chunks else {RecordType.VALID_RAW_FRAME}
+    else:
+        allowed = include_types
     return [
         RawReplayItem(record.timestamp_ns, record.payload, record.record_type)
         for record in records

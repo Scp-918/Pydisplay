@@ -41,3 +41,17 @@ def test_pipeline_adds_sequence_tracking_fields_and_health_counts() -> None:
     assert snapshot.lost_frame_ratio == 2 / 4
     assert snapshot.duplicate_seq_count == 0
     assert snapshot.seq_reset_count == 0
+
+
+def test_pipeline_reset_stream_state_starts_sequence_and_timebase_over() -> None:
+    decoded: list[DecodedSample] = []
+    pipeline = DataPipeline(decode_config=DecodeConfig(k=5.0), on_decoded=decoded.append)
+
+    pipeline.handle_raw_chunk(RawChunk(timestamp_ns=1_000_000_000, data=build_frame(100), port="test"))
+    pipeline.reset_stream_state()
+    pipeline.handle_raw_chunk(RawChunk(timestamp_ns=2_000_000_000, data=build_frame(100), port="test"))
+
+    assert decoded[-1].absolute_seq_u64 == 0
+    assert decoded[-1].seq_gap == 0
+    assert decoded[-1].lost_before == 0
+    assert decoded[-1].relative_time_s == 0.0

@@ -22,7 +22,7 @@ Click `刷新串口`, choose the HJ380 COM port, keep baudrate `460800` unless f
 
 ## Plot Workflow
 
-The top of the plot panel contains `暂停绘图` and `X轴长度`. Use `X轴长度` to choose how many recent seconds are visible on the realtime x-axis. Curve visibility checkboxes are placed further down at the bottom of the plot scroll area.
+The top of the plot panel contains `暂停绘图`, `清空图表`, and `X轴长度`. Use `清空图表` to clear only the current visible plot buffer; serial receiving and recording are not stopped. Use `X轴长度` to choose how many recent seconds are visible on the realtime x-axis. Curve visibility checkboxes are placed further down at the bottom of the plot scroll area.
 
 The default plot x-axis length is `5 s`. The realtime x-axis starts from the first decoded firmware frame, so new samples spread along time instead of stacking at x=0.
 
@@ -40,7 +40,7 @@ Set the record path and experiment name, then click `开始记录`. Clicking `�
 
 ## Replay Workflow
 
-Choose either `raw_frames.bin` or `decoded.csv`, select a speed, then start replay. Realtime serial mode and replay mode should not be used at the same time in this initial version.
+Choose either `raw_frames.bin` or `decoded.csv`, select a speed, then start replay. Realtime serial mode and replay mode should not be used at the same time in this initial version. Raw replay uses raw serial chunks when available and ignores debug-only bad-frame fragments by default; decoded CSV replay synthesizes 100 Hz timing from row order.
 
 ## Protocol
 

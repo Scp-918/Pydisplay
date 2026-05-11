@@ -47,7 +47,8 @@ def test_decoded_csv_writer_outputs_expected_fields(tmp_path) -> None:
 
     lines = path.read_text(encoding="utf-8").splitlines()
     assert lines[0].split(",") == CSV_FIELDS
-    assert {"absolute_seq_u64", "seq_gap", "lost_before", "segment_id"} <= set(CSV_FIELDS)
+    assert {"absolute_seq_u64", "segment_id"} <= set(CSV_FIELDS)
+    assert not {"relative_time_s", "timestamp_pc_ns", "seq_gap", "lost_before", "source"} & set(CSV_FIELDS)
     assert "0.25" in lines[1]
     assert "nan" in lines[1]
 
@@ -61,8 +62,6 @@ def test_sequence_csv_fields_use_empty_string_for_none_values() -> None:
 
     assert row["frame_seq"] == ""
     assert row["absolute_seq_u64"] == ""
-    assert row["seq_gap"] == 1
-    assert row["lost_before"] == 0
     assert row["segment_id"] == 0
 
 

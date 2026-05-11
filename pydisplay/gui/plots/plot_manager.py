@@ -53,6 +53,12 @@ class PlotManager:
             for item in items:
                 item.setData(x, y)
 
+    def clear(self) -> None:
+        """立即清空屏幕上已有的 PlotDataItem 数据。"""
+        for items in self.curves.values():
+            for item in items:
+                item.setData([], [])
+
     def _build_group_widget(self, pg, group: PlotGroupConfig):
         """创建一个九宫格中的绘图区块。
 

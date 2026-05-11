@@ -14,12 +14,8 @@ from pydisplay.protocol.models import DecodedSample
 
 
 CSV_FIELDS = [
-    "relative_time_s",
-    "timestamp_pc_ns",
     "frame_seq",
     "absolute_seq_u64",
-    "seq_gap",
-    "lost_before",
     "segment_id",
     "sample_seq",
     "PPG_G",
@@ -42,7 +38,6 @@ CSV_FIELDS = [
     "UD1",
     "UD2",
     "parser_valid",
-    "source",
 ]
 
 
@@ -87,12 +82,8 @@ class DecodedCsvWriter:
 def sample_to_csv_row(sample: DecodedSample) -> dict[str, object]:
     """把 dataclass 字段转换成 CSV 表头对应的字典。"""
     return {
-        "relative_time_s": sample.relative_time_s,
-        "timestamp_pc_ns": sample.timestamp_pc_ns,
         "frame_seq": "" if sample.frame_seq is None else sample.frame_seq,
         "absolute_seq_u64": "" if sample.absolute_seq_u64 is None else sample.absolute_seq_u64,
-        "seq_gap": sample.seq_gap,
-        "lost_before": sample.lost_before,
         "segment_id": sample.segment_id,
         "sample_seq": "" if sample.sample_seq is None else sample.sample_seq,
         "PPG_G": sample.ppg_g,
@@ -115,5 +106,4 @@ def sample_to_csv_row(sample: DecodedSample) -> dict[str, object]:
         "UD1": sample.ud1,
         "UD2": sample.ud2,
         "parser_valid": sample.parser_valid,
-        "source": sample.source,
     }

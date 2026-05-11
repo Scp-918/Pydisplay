@@ -51,6 +51,12 @@ class DataPipeline:
         self.health = health or HealthMonitor()
         self.on_decoded = on_decoded
 
+    def reset_stream_state(self) -> None:
+        """Reset parser, sequence tracker, and decoder time zero for a new input stream."""
+        self.parser = FrameParser(max_buffer_bytes=self.parser.max_buffer_bytes)
+        self.sequence_tracker = FrameSequenceTracker()
+        self.decode_config.start_time_ns = None
+
     def handle_raw_chunk(self, chunk: RawChunk) -> None:
         """处理串口 reader 或 raw 回放送来的一段原始 bytes。"""
         self.health.add_raw_bytes(len(chunk.data))

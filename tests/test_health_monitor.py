@@ -58,3 +58,19 @@ def test_health_monitor_counts_duplicate_and_reset_sequence_events() -> None:
     assert snapshot.lost_frames == 0
     assert snapshot.duplicate_seq_count == 1
     assert snapshot.seq_reset_count == 1
+
+
+def test_health_monitor_reset_counters_preserves_states() -> None:
+    monitor = HealthMonitor()
+    monitor.set_states(serial_state="DISCONNECTED", recording_state="IDLE", replay_state="PLAYING")
+    monitor.add_raw_bytes(100)
+    monitor.add_sequence_result(lost_before=2, duplicate=True, reset=True)
+
+    monitor.reset_counters()
+    snapshot = monitor.snapshot(now_ns=1_000_000_000)
+
+    assert snapshot.replay_state == "PLAYING"
+    assert snapshot.total_bytes == 0
+    assert snapshot.lost_frames == 0
+    assert snapshot.duplicate_seq_count == 0
+    assert snapshot.seq_reset_count == 0

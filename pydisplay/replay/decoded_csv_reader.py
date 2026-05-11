@@ -13,6 +13,8 @@ from pathlib import Path
 from pydisplay.protocol.models import DecodedSample
 from pydisplay.recorder.csv_writer import CSV_FIELDS
 
+DEFAULT_DECODED_CSV_REPLAY_HZ = 100.0
+
 
 class DecodedCsvFormatError(ValueError):
     """Raised when decoded.csv is missing required fields or values."""
@@ -26,19 +28,25 @@ def read_decoded_csv(path: str | Path) -> list[DecodedSample]:
         if missing:
             missing_text = ", ".join(sorted(missing))
             raise DecodedCsvFormatError(f"decoded.csv missing required fields: {missing_text}")
-        return [_row_to_sample(row) for row in reader]
+        return [_row_to_sample(row, index) for index, row in enumerate(reader)]
 
 
-def _row_to_sample(row: dict[str, str]) -> DecodedSample:
+def _row_to_sample(row: dict[str, str], index: int) -> DecodedSample:
     """把 CSV 的一行字符串转换成 DecodedSample。"""
     try:
+        relative_time_s = _optional_float(row.get("relative_time_s", ""))
+        if relative_time_s is None:
+            relative_time_s = index / DEFAULT_DECODED_CSV_REPLAY_HZ
+        timestamp_pc_ns = _optional_int(row.get("timestamp_pc_ns", ""))
+        if timestamp_pc_ns is None:
+            timestamp_pc_ns = int(relative_time_s * 1_000_000_000)
         return DecodedSample(
-            relative_time_s=_float(row["relative_time_s"]),
-            timestamp_pc_ns=int(float(row["timestamp_pc_ns"])),
+            relative_time_s=relative_time_s,
+            timestamp_pc_ns=timestamp_pc_ns,
             frame_seq=_optional_int(row["frame_seq"]),
             absolute_seq_u64=_optional_int(row["absolute_seq_u64"]),
-            seq_gap=_int(row["seq_gap"]),
-            lost_before=_int(row["lost_before"]),
+            seq_gap=_int(row.get("seq_gap", "")),
+            lost_before=_int(row.get("lost_before", "")),
             segment_id=_int(row["segment_id"]),
             sample_seq=_optional_int(row["sample_seq"]),
             ppg_g=_float(row["PPG_G"]),
@@ -61,7 +69,7 @@ def _row_to_sample(row: dict[str, str]) -> DecodedSample:
             ud1=_float(row["UD1"]),
             ud2=_float(row["UD2"]),
             parser_valid=_bool(row["parser_valid"]),
-            source=row["source"] or "decoded_csv",
+            source=row.get("source") or "decoded_csv",
         )
     except (KeyError, TypeError, ValueError) as exc:
         raise DecodedCsvFormatError(f"decoded.csv row is invalid: {exc}") from exc
@@ -71,6 +79,12 @@ def _optional_int(value: str) -> int | None:
     if value == "":
         return None
     return int(float(value))
+
+
+def _optional_float(value: str) -> float | None:
+    if value == "":
+        return None
+    return _float(value)
 
 
 def _int(value: str) -> int:

@@ -132,6 +132,8 @@ class MainWindow(QMainWindow):
 
     def _open_serial(self, port: str, baudrate: int) -> None:
         """打开串口；真正读取由 SerialReader 后台线程完成。"""
+        self.pipeline.reset_stream_state()
+        self.health.reset_counters()
         self.serial_manager.open(port, baudrate)
         self.health.set_states(serial_state=self._serial_state_text())
 
@@ -215,6 +217,8 @@ class MainWindow(QMainWindow):
             self._show_error("回放文件错误", str(exc))
             return
 
+        self.pipeline.reset_stream_state()
+        self.health.reset_counters()
         self.replay_worker = ReplayWorker(items, on_item=self._handle_replay_item, on_error=lambda exc: self._show_error("回放异常", str(exc)))
         self.replay_worker.start(speed=speed)
         self.health.set_states(replay_state=self.replay_worker.state.name)

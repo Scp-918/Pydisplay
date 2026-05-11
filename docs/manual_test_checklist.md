@@ -58,6 +58,7 @@
 - [ ] PPG colors are green/red/purple, Uh2/Uh3 are red/orange, Uc2/Uc3 are blue/cyan, and UD1/UD2 are yellow/orange.
 - [ ] Plot refresh defaults to about 20 Hz.
 - [ ] `暂停绘图` stops curve refresh while data can still be recorded.
+- [ ] `清空图表` clears visible curves without stopping serial receiving or recording.
 - [ ] `X轴长度` changes the realtime visible time window.
 - [ ] `X轴长度` defaults to `5 s`.
 - [ ] Live or raw replay curves spread along the x-axis instead of appearing as a single vertical line.
@@ -77,12 +78,14 @@
 - [ ] `decoded.csv` is created.
 - [ ] `metadata.json` is created.
 - [ ] `metadata.json` contains start and end time.
-- [ ] `decoded.csv` contains `frame_seq`, `absolute_seq_u64`, `seq_gap`, `lost_before`, and `segment_id`.
+- [ ] `decoded.csv` contains `frame_seq`, `absolute_seq_u64`, `segment_id`, decoded signal fields, and `parser_valid`.
+- [ ] `decoded.csv` does not contain `relative_time_s`, `timestamp_pc_ns`, `seq_gap`, `lost_before`, or `source`.
 
 ## 6. Replay
 
 - [ ] Select a `raw_frames.bin` file.
 - [ ] Start raw bin replay.
+- [ ] Clean raw-bin replay does not report false bad frames or packet loss from debug-only raw-bin records.
 - [ ] Select a `decoded.csv` file.
 - [ ] Start decoded csv replay.
 - [ ] Pause replay.

@@ -118,15 +118,10 @@ def _hex_bytes(data: bytes) -> str:
 
 def _csv_field_description(field: str) -> str:
     descriptions = {
-        "relative_time_s": "Relative time from recording start, seconds",
-        "timestamp_pc_ns": "PC timestamp in ns",
         "frame_seq": "Firmware uint16 source frame sequence",
         "absolute_seq_u64": "Monotonic source sequence within the recorded stream for interpolation",
-        "seq_gap": "uint16 modular delta from previous firmware frame_seq; first frame is 0",
-        "lost_before": "Estimated missing firmware frames immediately before this sample",
         "segment_id": "Sequence segment, incremented after reset or severe reorder",
         "sample_seq": "PC parser sample sequence",
         "parser_valid": "Whether parser accepted the source frame",
-        "source": "Data source name",
     }
     return descriptions.get(field, f"Decoded field {field}")

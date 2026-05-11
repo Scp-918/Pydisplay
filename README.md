@@ -1,6 +1,6 @@
 # Pydisplay
 
-Pydisplay is a Python upper-computer GUI for the STM32G474 PulseTIMR2 firmware on branch `Single`. It receives HJ131 data through an HJ380 BLE serial port, parses the confirmed 49-byte firmware frame, decodes PPG/IMU/Uh/Uc/UD values, plots them with PySide6 + PyQtGraph, records data, and replays saved sessions without hardware.
+Pydisplay is a Python upper-computer GUI for the STM32G474 PulseTIMR2 firmware on branch `Single`. It receives HJ131 data through an HJ380 BLE serial port, parses the confirmed 51-byte firmware frame, decodes PPG/IMU/Uh/Uc/UD values, plots them with PySide6 + PyQtGraph, records data, and replays saved sessions without hardware.
 
 ## Environment
 
@@ -54,7 +54,7 @@ The left control column is intentionally compact so the realtime plots get more 
 
 The replay panel sits below the health panel in the scrollable left column. In normal monitoring you usually see serial/control/recording/health first; scroll down when you need replay inputs.
 
-The realtime plot header keeps only `暂停绘图` and an editable `X轴长度` value. Curve visibility checkboxes are placed further down at the bottom of the plot scroll area, so routine viewing gives more space to plots.
+The realtime plot header keeps `暂停绘图`, `清空图表`, and an editable `X轴长度` value. `清空图表` clears the current on-screen plot buffer only; it does not stop serial receiving or recording. Curve visibility checkboxes are placed further down at the bottom of the plot scroll area, so routine viewing gives more space to plots.
 
 Startup defaults are aligned with the firmware initial state where possible: `k = 24`, realtime x-axis length is `5 s`, PPG mode is `MultiLED`, Multi sub-mode is `G-R-IR`, LED levels are Green `5`, Red `1`, IR `1`, PPG range is `3`, pulse width is `3`, gyro range is `500 dps`, and accel range is `2 g`.
 
@@ -99,14 +99,14 @@ records/
     metadata.json
 ```
 
-`raw_frames.bin` stores raw serial chunks or raw frames with PC timestamps. `decoded.csv` stores decoded samples. `metadata.json` stores software, firmware, serial, protocol, CSV, and control metadata. File writing is handled by `RecorderWorker`, not the GUI thread.
+`raw_frames.bin` stores raw serial chunks or raw frames with PC timestamps. `decoded.csv` stores compact decoded samples and intentionally omits `relative_time_s`, `timestamp_pc_ns`, `seq_gap`, `lost_before`, and `source`. `metadata.json` stores software, firmware, serial, protocol, CSV, and control metadata. File writing is handled by `RecorderWorker`, not the GUI thread.
 
 ## Replay Mode
 
 Replay supports:
 
-- `raw_frames.bin`: replays raw records back through the parser/decoder path.
-- `decoded.csv`: restores decoded samples directly for UI and algorithm debugging.
+- `raw_frames.bin`: replays raw serial chunks back through the parser/decoder path. If a file has no raw chunks, replay falls back to complete valid raw frames. Debug-only bad-frame fragments are not replayed by default, which avoids false bad-frame or loss reports from recorder diagnostics.
+- `decoded.csv`: restores decoded samples directly for UI and algorithm debugging. Because compact CSV files no longer store timestamps, decoded CSV replay synthesizes 100 Hz timing from row order.
 - Speeds: `0.25x`, `0.5x`, `1x`, `2x`, `5x`.
 - Pause, resume, and stop.
 
@@ -145,5 +145,5 @@ python scripts\simulate_device.py
 
 - If PySide6 is missing, confirm the active environment is `Pydisplay_env`.
 - If no COM port appears, reconnect HJ380 and click `刷新串口`.
-- If bad frame ratio rises, inspect `raw_frames.bin` and `docs/protocol_analysis.md` field definitions.
+- If bad frame ratio rises during raw replay, inspect whether the file contains real raw serial chunks. Normal replay ignores `bad_frame_fragment` records by default; those records are for debugging the original capture, not for replaying a clean serial stream.
 - If recording fails, check path permissions and `logs/pydisplay.log`.

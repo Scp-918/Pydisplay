@@ -87,10 +87,14 @@ class ReplayWorker:
         self.state = ReplayState.STOPPING
         self._stop_event.set()
         self._pause_event.clear()
+        if self._thread is threading.current_thread():
+            return
         self.wait()
+        if not (self._thread and self._thread.is_alive()) and self.state == ReplayState.STOPPING:
+            self.state = ReplayState.IDLE
 
     def wait(self, timeout_s: float | None = None) -> None:
-        if self._thread and self._thread.is_alive():
+        if self._thread and self._thread.is_alive() and self._thread is not threading.current_thread():
             self._thread.join(timeout_s)
 
     def _run(self) -> None:
@@ -100,6 +104,7 @@ class ReplayWorker:
                 while self._pause_event.is_set() and not self._stop_event.is_set():
                     time.sleep(0.005)
                 if self._stop_event.is_set():
+                    self.state = ReplayState.IDLE
                     return
 
                 ts = _timestamp_ns(item)
@@ -108,6 +113,7 @@ class ReplayWorker:
                     if delay:
                         _sleep_interruptible(delay, self._stop_event, self._pause_event)
                 if self._stop_event.is_set():
+                    self.state = ReplayState.IDLE
                     return
                 self.on_item(item)
                 previous_ts = ts

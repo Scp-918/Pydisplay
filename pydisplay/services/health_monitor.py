@@ -82,6 +82,17 @@ class HealthMonitor:
         self._last_decoded_samples = 0
         self._last_plot_frames = 0
 
+    def reset_counters(self, *, keep_states: bool = True) -> None:
+        """Clear cumulative counters before a new replay or serial stream starts."""
+        serial_state = self.serial_state
+        recording_state = self.recording_state
+        replay_state = self.replay_state
+        self.__init__()
+        if keep_states:
+            self.serial_state = serial_state
+            self.recording_state = recording_state
+            self.replay_state = replay_state
+
     def add_raw_bytes(self, count: int, *, serial_buffer_bytes: int | None = None) -> None:
         self.total_bytes += count
         if serial_buffer_bytes is not None:

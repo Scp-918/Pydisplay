@@ -8,7 +8,7 @@ Pydisplay 是一个运行在电脑上的 Python 上位机程序。它通过电�
 
 1. 打开和关闭串口；
 2. 持续接收原始 bytes；
-3. 按固件真实协议解析 49 字节数据帧；
+3. 按固件真实协议解析 51 字节数据帧；
 4. 解码 PPG、IMU、Uh、Uc、UD；
 5. 用 PySide6 + PyQtGraph 实时绘图；
 6. 把数据记录成 `raw_frames.bin`、`decoded.csv`、`metadata.json`；
@@ -116,7 +116,7 @@ Pydisplay/
 
 - 数据帧帧头：`AA BB`
 - 数据帧帧尾：`CC`
-- 数据帧长度：49 字节
+- 数据帧长度：51 字节
 - payload 长度：45 字节
 - checksum：payload 字节 2..46 的 XOR
 - 各字段 offset，如 `PPG_G` 从 byte 26 开始
@@ -128,7 +128,7 @@ Pydisplay/
 串口读出来的是连续 bytes，不会保证“一次 read 正好一帧”。parser 的任务是：
 
 1. 在 byte stream 中寻找帧头 `AA BB`；
-2. 等待足够的 49 字节；
+2. 等待足够的 51 字节；
 3. 检查帧尾 `CC`；
 4. 计算并检查 XOR checksum；
 5. 输出 `ParsedFrame`；
@@ -236,9 +236,15 @@ records/
 字段包括：
 
 ```text
-relative_time_s, timestamp_pc_ns, PPG_G, PPG_R, PPG_IR,
-ACC_X/Y/Z, GYRO_X/Y/Z, Uh1..Uh4, Uc1..Uc4, UD1, UD2
+frame_seq, absolute_seq_u64, segment_id, sample_seq,
+PPG_G, PPG_R, PPG_IR, ACC_X/Y/Z, GYRO_X/Y/Z,
+Uh1..Uh4, Uc1..Uc4, UD1, UD2, parser_valid
 ```
+
+为了让 CSV 更适合后处理表格，当前版本不再写入
+`relative_time_s`、`timestamp_pc_ns`、`seq_gap`、`lost_before` 和 `source`。
+如果用 `decoded.csv` 回放，程序会按照行号自动生成 100 Hz 的回放时间；
+如果要分析丢包，可以使用 `frame_seq` 和 `absolute_seq_u64` 重新计算。
 
 ### 9.3 `metadata.json`
 
@@ -258,8 +264,8 @@ ACC_X/Y/Z, GYRO_X/Y/Z, Uh1..Uh4, Uc1..Uc4, UD1, UD2
 
 支持两类文件：
 
-1. `raw_frames.bin`：重新走 parser/decoder，更接近真实链路；
-2. `decoded.csv`：直接恢复 decoded sample，适合无硬件调试界面。
+1. `raw_frames.bin`：重新走 parser/decoder，更接近真实链路。默认只回放真正的原始串口 chunk；如果旧文件里没有 raw chunk，才退回回放完整有效帧。`bad_frame_fragment` 是调试记录，不会默认当成串口流回放，所以不会把记录器的诊断片段误判成误码；
+2. `decoded.csv`：直接恢复 decoded sample，适合无硬件调试界面。因为当前 CSV 不再保存时间戳，回放时会按 100 Hz 用行号生成时间。
 
 支持速度：
 
@@ -296,10 +302,11 @@ GUI 主窗口在 `pydisplay/gui/main_window.py`。
 
 这样平时更容易看到串口、记录和链路健康状态；回放区放在健康区下面，需要回放时在左侧栏向下滚动即可。
 
-右侧实时绘图区顶部现在只保留两个常用控件：
+右侧实时绘图区顶部现在只保留三个常用控件：
 
 1. `暂停绘图`：只暂停曲线刷新，不影响串口接收和记录；
-2. `X轴长度`：输入最近显示多少秒数据，默认是 5 s，也可以改成 10 s、20 s。
+2. `清空图表`：一键清空当前屏幕上的曲线缓存，只影响显示，不会停止串口接收，也不会停止后台记录；
+3. `X轴长度`：输入最近显示多少秒数据，默认是 5 s，也可以改成 10 s、20 s。
 
 下位机控制区的初始值已经和固件 `Single` 分支 `Core/Src/main.c` 里的 `g_sensor_param_array` 对齐：`k` 默认是 24；PPG mode 默认 `MultiLED`；Multi sub-mode 默认 `G-R-IR`；绿光/红光/IR 亮度默认是 `5/1/1`；PPG 量程默认 `3`；脉宽默认 `3`；陀螺仪量程默认 `500 dps`；加速度计量程默认 `2 g`。这样程序刚启动时，GUI 显示的控制参数和单片机初始化后正在使用的参数一致。
 
