@@ -13,8 +13,10 @@ ReplayWorker 在后台线程中按时间戳节奏投递数据，避免 GUI 阻�
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable
+from contextlib import contextmanager
 from enum import Enum
 import logging
+import sys
 import threading
 import time
 from typing import Any
@@ -105,23 +107,24 @@ class ReplayWorker:
     def _run(self) -> None:
         previous_ts: int | None = None
         try:
-            for index, item in enumerate(self.items):
-                if not _wait_while_paused(self._stop_event, self._pause_event):
-                    self.state = ReplayState.IDLE
-                    return
-
-                ts = _timestamp_ns(item)
-                if previous_ts is not None:
-                    delay = max(0.0, (ts - previous_ts) / 1_000_000_000.0 / self.speed)
-                    if delay and not _sleep_interruptible(delay, self._stop_event, self._pause_event):
+            with _high_resolution_timer():
+                for index, item in enumerate(self.items):
+                    if not _wait_while_paused(self._stop_event, self._pause_event):
                         self.state = ReplayState.IDLE
                         return
-                if self._stop_event.is_set():
-                    self.state = ReplayState.IDLE
-                    return
-                self.on_item(item)
-                self.played_items = index + 1
-                previous_ts = ts
+
+                    ts = _timestamp_ns(item)
+                    if previous_ts is not None:
+                        delay = max(0.0, (ts - previous_ts) / 1_000_000_000.0 / self.speed)
+                        if delay and not _sleep_interruptible(delay, self._stop_event, self._pause_event):
+                            self.state = ReplayState.IDLE
+                            return
+                    if self._stop_event.is_set():
+                        self.state = ReplayState.IDLE
+                        return
+                    self.on_item(item)
+                    self.played_items = index + 1
+                    previous_ts = ts
             self.state = ReplayState.FINISHED
             if self.on_finished:
                 self.on_finished()
@@ -154,9 +157,10 @@ def _wait_while_paused(stop_event: threading.Event, pause_event: threading.Event
 def _sleep_interruptible(delay_s: float, stop_event: threading.Event, pause_event: threading.Event) -> bool:
     """按回放节拍等待，同时支持 stop 和 pause。
 
-    Windows 普通 sleep 对 5-10 ms 的短间隔可能明显超时。这里用 perf_counter
-    计算绝对 deadline：大于数毫秒时短 sleep，最后阶段只 yield，减少短 sleep
-    粒度造成的累计误差。pause 期间不消耗剩余等待时间。
+    Windows 普通 sleep 对 5-10 ms 的短间隔可能明显超时。ReplayWorker 运行期间会
+    临时请求 1 ms timer resolution；这里再用 perf_counter 计算绝对 deadline。
+    大于数毫秒时短 sleep，最后约 1 ms 以内忙等到点，避免 `sleep(0)` 在 Windows
+    上让出过长时间片。pause 期间不消耗剩余等待时间。
     """
     if delay_s <= 0:
         return not stop_event.is_set()
@@ -174,11 +178,43 @@ def _sleep_interruptible(delay_s: float, stop_event: threading.Event, pause_even
         if remaining <= 0:
             return True
 
-        if remaining > 0.004:
-            wait_s = min(0.002, remaining - 0.002)
+        if remaining > 0.003:
+            wait_s = min(0.002, remaining - 0.001)
             if stop_event.wait(wait_s):
                 return False
         else:
-            # 让出时间片但不请求毫秒级 sleep，降低 Windows timer 粒度影响。
-            time.sleep(0)
+            # 最后几毫秒不再 sleep/yield。Windows 上 sleep(0) 可能让出完整时间片，
+            # 会把 10 ms 帧节拍拖慢到约 50-65 Hz。
+            continue
     return False
+
+
+@contextmanager
+def _high_resolution_timer():
+    """在 Windows 回放期间临时提高系统计时器分辨率。
+
+    timeBeginPeriod/timeEndPeriod 是进程级请求，必须成对调用。非 Windows 平台
+    直接空操作。若调用失败，回放仍继续，只是短间隔 sleep 精度可能受系统影响。
+    """
+    if sys.platform != "win32":
+        yield
+        return
+
+    try:
+        import ctypes
+
+        winmm = ctypes.WinDLL("winmm")
+        started = winmm.timeBeginPeriod(1) == 0
+    except Exception:
+        LOGGER.debug("Failed to enable high resolution timer", exc_info=True)
+        started = False
+        winmm = None
+
+    try:
+        yield
+    finally:
+        if started and winmm is not None:
+            try:
+                winmm.timeEndPeriod(1)
+            except Exception:
+                LOGGER.debug("Failed to restore timer resolution", exc_info=True)

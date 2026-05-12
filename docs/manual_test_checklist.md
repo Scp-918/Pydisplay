@@ -86,6 +86,8 @@
 - [ ] Select a `raw_frames.bin` file.
 - [ ] Start raw bin replay.
 - [ ] Raw-bin replay reconstructs a stable 100 Hz frame clock from parsed raw frames.
+- [ ] Health `有效帧率` is close to 100 Hz at 1x replay after the first refresh interval.
+- [ ] Plot FPS may stay near the configured redraw rate, usually about 20 FPS, and is not the replay data rate.
 - [ ] Raw-bin replay does not show false loss/error when a no-error recording is replayed.
 - [ ] Raw-bin replay still runs raw frames through the parser/decoder path.
 - [ ] Select a `decoded.csv` file.

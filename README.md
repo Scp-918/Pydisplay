@@ -110,6 +110,8 @@ Replay supports:
 - Speeds: `0.25x`, `0.5x`, `1x`, `2x`, `5x`.
 - Pause, resume, and stop.
 
+On Windows, raw replay temporarily requests 1 ms timer resolution while the replay thread is running. This keeps the 10 ms frame clock close to 100 Hz. The plot refresh FPS is still independent and defaults to about 20 FPS, so `plot FPS` should not be read as the data replay rate.
+
 Initial GUI behavior treats realtime serial input and replay as mutually exclusive.
 
 Replay completion is detected by the number of records loaded from the file; the raw bin format does not need an end marker. This avoids confusing a normal "pause recording, then continue recording" workflow with artificial end records.

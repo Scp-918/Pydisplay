@@ -287,6 +287,8 @@ python scripts\inspect_raw_bin.py D:\你的记录目录\raw_frames.bin
 
 如果里面有很多 1 字节或一次包含多帧的 `raw_serial_chunk`，这是正常现象，不表示 bin 文件损坏。当前 GUI 默认使用 100 Hz 帧节拍重建来消除这种串口 chunk 抖动。
 
+还有一个容易误判的地方：`有效帧率` 才是回放数据进入 parser/decoder 的速率；`绘图 FPS` 只是界面曲线刷新速率，默认大约 20 FPS。也就是说，数据可以按 100 Hz 回放和记录到缓冲区，但界面不会每来一帧就重画一次，否则 GUI 会更容易卡顿。在 Windows 上，回放线程运行期间还会临时请求 1 ms 计时器精度，避免 10 ms 帧节拍被系统 sleep 精度拖慢。
+
 ## 11. GUI 结构
 
 GUI 主窗口在 `pydisplay/gui/main_window.py`。
