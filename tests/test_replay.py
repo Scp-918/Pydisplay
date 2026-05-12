@@ -69,6 +69,7 @@ def test_read_raw_replay_items_falls_back_to_valid_frames(tmp_path) -> None:
 
     assert items == [
         RawReplayItem(timestamp_ns=150, data=b"frame", record_type=RecordType.VALID_RAW_FRAME),
+        RawReplayItem(timestamp_ns=200, data=b"bad", record_type=RecordType.BAD_FRAME_FRAGMENT),
     ]
 
 
@@ -127,7 +128,12 @@ def test_read_decoded_csv_rejects_missing_fields(tmp_path) -> None:
 def test_replay_worker_pause_resume_and_finish() -> None:
     items = [sample(1, 0.0), sample(2, 0.01)]
     seen: list[int | None] = []
-    worker = ReplayWorker(items, on_item=lambda item: (seen.append(item.sample_seq), worker.pause()))
+    finished: list[bool] = []
+    worker = ReplayWorker(
+        items,
+        on_item=lambda item: (seen.append(item.sample_seq), worker.pause()),
+        on_finished=lambda: finished.append(True),
+    )
 
     worker.start(speed=5.0)
     time.sleep(0.02)
@@ -138,6 +144,30 @@ def test_replay_worker_pause_resume_and_finish() -> None:
     worker.wait(timeout_s=1.0)
 
     assert seen == [1, 2]
+    assert worker.state == ReplayState.FINISHED
+    assert finished == [True]
+
+
+def test_replay_worker_pause_during_timestamp_delay_holds_next_item() -> None:
+    items = [
+        RawReplayItem(0, b"first", RecordType.RAW_SERIAL_CHUNK),
+        RawReplayItem(200_000_000, b"second", RecordType.RAW_SERIAL_CHUNK),
+    ]
+    seen: list[bytes] = []
+    worker = ReplayWorker(items, on_item=lambda item: seen.append(item.data))
+
+    worker.start(speed=1.0)
+    time.sleep(0.03)
+    worker.pause()
+    time.sleep(0.25)
+
+    assert seen == [b"first"]
+    assert worker.state == ReplayState.PAUSED
+
+    worker.resume()
+    worker.wait(timeout_s=1.0)
+
+    assert seen == [b"first", b"second"]
     assert worker.state == ReplayState.FINISHED
 
 

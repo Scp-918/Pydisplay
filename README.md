@@ -39,7 +39,7 @@ conda run -n Pydisplay_env python -m pydisplay --smoke-test
 2. Click `刷新串口`.
 3. Select the HJ380 COM port and baudrate. Firmware documentation targets `460800`.
 4. Click `打开串口`.
-5. Data receiving starts after the port is opened. Use `暂停接收` to pause background reads while keeping the serial port open, and `开始接收` to resume.
+5. Data receiving starts after the port is opened. Use `暂停接收` to pause background reads while keeping the serial port open, and `开始接收` to resume. When no serial port is open but replay is running, the same two buttons pause/resume replay.
 6. Use `关闭串口` or `重连` for recovery.
 
 Serial reading runs in a background thread. GUI controls do not read the serial port directly.
@@ -105,12 +105,14 @@ records/
 
 Replay supports:
 
-- `raw_frames.bin`: replays raw serial chunks back through the parser/decoder path. If a file has no raw chunks, replay falls back to complete valid raw frames. Debug-only bad-frame fragments are not replayed by default, which avoids false bad-frame or loss reports from recorder diagnostics.
+- `raw_frames.bin`: replays raw serial chunks back through the parser/decoder path using the PC timestamps stored in the bin file, so the default rhythm follows the original capture instead of a fixed 100 Hz reconstruction. Raw chunks are the preferred source because they preserve valid frames, invalid bytes, half packets, and sticky packets exactly as the serial reader received them. If an older file has no raw chunks, replay falls back to complete valid raw frames plus bad-frame fragments.
 - `decoded.csv`: restores decoded samples directly for UI and algorithm debugging. Because compact CSV files no longer store timestamps, decoded CSV replay synthesizes 100 Hz timing from row order.
 - Speeds: `0.25x`, `0.5x`, `1x`, `2x`, `5x`.
 - Pause, resume, and stop.
 
 Initial GUI behavior treats realtime serial input and replay as mutually exclusive.
+
+Replay completion is detected by the number of records loaded from the file; the raw bin format does not need an end marker. This avoids confusing a normal "pause recording, then continue recording" workflow with artificial end records.
 
 ## Protocol Documentation
 
@@ -145,5 +147,5 @@ python scripts\simulate_device.py
 
 - If PySide6 is missing, confirm the active environment is `Pydisplay_env`.
 - If no COM port appears, reconnect HJ380 and click `刷新串口`.
-- If bad frame ratio rises during raw replay, inspect whether the file contains real raw serial chunks. Normal replay ignores `bad_frame_fragment` records by default; those records are for debugging the original capture, not for replaying a clean serial stream.
+- If raw replay speed looks wrong, inspect whether the file contains `raw_serial_chunk` records. New recordings use their original timestamps. Older files that only contain `valid_raw_frame`/`bad_frame_fragment` can replay only the timestamps available in those records.
 - If recording fails, check path permissions and `logs/pydisplay.log`.

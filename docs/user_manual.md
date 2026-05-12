@@ -18,7 +18,7 @@ The left-side order is `串口连接 -> 下位机控制 -> 数据记录 -> 链�
 
 ## Serial Workflow
 
-Click `刷新串口`, choose the HJ380 COM port, keep baudrate `460800` unless firmware changes, then click `打开串口`. Data receiving starts after the port is opened. Use `暂停接收` to pause background serial reads without closing the port, and `开始接收` to resume. Use `关闭串口` before starting raw/csv replay.
+Click `刷新串口`, choose the HJ380 COM port, keep baudrate `460800` unless firmware changes, then click `打开串口`. Data receiving starts after the port is opened. Use `暂停接收` to pause background serial reads without closing the port, and `开始接收` to resume. If no serial port is open but replay is running, those same two buttons pause/resume replay. Use `关闭串口` before starting raw/csv replay.
 
 ## Plot Workflow
 
@@ -40,7 +40,9 @@ Set the record path and experiment name, then click `开始记录`. Clicking `�
 
 ## Replay Workflow
 
-Choose either `raw_frames.bin` or `decoded.csv`, select a speed, then start replay. Realtime serial mode and replay mode should not be used at the same time in this initial version. Raw replay uses raw serial chunks when available and ignores debug-only bad-frame fragments by default; decoded CSV replay synthesizes 100 Hz timing from row order.
+Choose either `raw_frames.bin` or `decoded.csv`, select a speed, then start replay. Realtime serial mode and replay mode should not be used at the same time in this initial version. Raw replay uses raw serial chunks and their stored PC timestamps when available, so the default rhythm follows the original capture. These chunks already include invalid bytes. If an older bin has no raw chunks, replay falls back to valid raw frames plus bad-frame fragments. Decoded CSV replay synthesizes 100 Hz timing from row order.
+
+Replay stops automatically after the loaded record count is consumed; raw bin files do not need an end marker.
 
 ## Protocol
 

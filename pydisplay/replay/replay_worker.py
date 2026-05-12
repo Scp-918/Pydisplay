@@ -47,13 +47,17 @@ class ReplayWorker:
         *,
         on_item: Callable[[Any], None],
         on_error: Callable[[Exception], None] | None = None,
+        on_finished: Callable[[], None] | None = None,
     ) -> None:
         self.items = list(items)
         self.on_item = on_item
         self.on_error = on_error
+        self.on_finished = on_finished
         self.state = ReplayState.IDLE
         self.last_error: str | None = None
         self.speed = 1.0
+        self.total_items = len(self.items)
+        self.played_items = 0
         self._thread: threading.Thread | None = None
         self._pause_event = threading.Event()
         self._stop_event = threading.Event()
@@ -65,6 +69,7 @@ class ReplayWorker:
         if self._thread and self._thread.is_alive():
             raise RuntimeError("replay is already running")
         self.speed = speed
+        self.played_items = 0
         self._pause_event.clear()
         self._stop_event.clear()
         self.state = ReplayState.PLAYING
@@ -100,24 +105,26 @@ class ReplayWorker:
     def _run(self) -> None:
         previous_ts: int | None = None
         try:
-            for item in self.items:
-                while self._pause_event.is_set() and not self._stop_event.is_set():
-                    time.sleep(0.005)
-                if self._stop_event.is_set():
+            for index, item in enumerate(self.items):
+                if not _wait_while_paused(self._stop_event, self._pause_event):
                     self.state = ReplayState.IDLE
                     return
 
                 ts = _timestamp_ns(item)
                 if previous_ts is not None:
                     delay = max(0.0, (ts - previous_ts) / 1_000_000_000.0 / self.speed)
-                    if delay:
-                        _sleep_interruptible(delay, self._stop_event, self._pause_event)
+                    if delay and not _sleep_interruptible(delay, self._stop_event, self._pause_event):
+                        self.state = ReplayState.IDLE
+                        return
                 if self._stop_event.is_set():
                     self.state = ReplayState.IDLE
                     return
                 self.on_item(item)
+                self.played_items = index + 1
                 previous_ts = ts
             self.state = ReplayState.FINISHED
+            if self.on_finished:
+                self.on_finished()
         except Exception as exc:
             LOGGER.exception("Replay failed")
             self.last_error = str(exc)
@@ -136,10 +143,33 @@ def _timestamp_ns(item: Any) -> int:
     return int(getattr(item, "timestamp_ns", 0))
 
 
-def _sleep_interruptible(delay_s: float, stop_event: threading.Event, pause_event: threading.Event) -> None:
-    """可被 stop/pause 打断的 sleep，避免长时间 sleep 导致停止不及时。"""
-    deadline = time.monotonic() + delay_s
-    while time.monotonic() < deadline and not stop_event.is_set():
+def _wait_while_paused(stop_event: threading.Event, pause_event: threading.Event) -> bool:
+    """暂停时阻塞在这里；返回 False 表示回放被 stop 打断。"""
+    while pause_event.is_set():
+        if stop_event.wait(0.005):
+            return False
+    return not stop_event.is_set()
+
+
+def _sleep_interruptible(delay_s: float, stop_event: threading.Event, pause_event: threading.Event) -> bool:
+    """按原始时间戳等待，同时支持 stop 和 pause。
+
+    早期实现遇到 pause 会直接跳出 sleep，然后继续投递当前 item，导致点击暂停后
+    仍可能多回放一条数据。这里把“暂停耗时”从播放延迟中剔除，恢复后继续等剩余
+    原始间隔。
+    """
+    remaining = max(0.0, delay_s)
+    last = time.monotonic()
+    while remaining > 0 and not stop_event.is_set():
         if pause_event.is_set():
-            break
-        time.sleep(min(0.01, deadline - time.monotonic()))
+            if not _wait_while_paused(stop_event, pause_event):
+                return False
+            last = time.monotonic()
+            continue
+        wait_s = min(0.01, remaining)
+        if stop_event.wait(wait_s):
+            return False
+        now = time.monotonic()
+        remaining -= now - last
+        last = now
+    return not stop_event.is_set()

@@ -24,11 +24,24 @@ def read_raw_replay_items(
     *,
     include_types: set[RecordType] | None = None,
 ) -> list[RawReplayItem]:
-    """读取 raw bin 并转换成 ReplayWorker 可处理的 RawReplayItem 列表。"""
+    """读取 raw bin 并转换成 ReplayWorker 可处理的 RawReplayItem 列表。
+
+    正常新记录会包含 RAW_SERIAL_CHUNK，这些 chunk 是最接近真实串口输入的
+    数据源，里面已经包含有效帧、无效帧、半包和粘包。因此只要存在 raw chunk，
+    默认就只回放 raw chunk，避免把同一次记录里的 valid_frame 诊断记录重复喂给
+    parser。
+
+    如果旧文件没有 raw chunk，则退回到完整帧/坏帧 fragment 的记录。这个 fallback
+    不能完全恢复串口粘包形态，但至少能按记录时间戳把有效帧和无效片段都回放出来。
+    """
     _header, records = read_raw_bin(path)
     if include_types is None:
         has_raw_chunks = any(record.record_type == RecordType.RAW_SERIAL_CHUNK for record in records)
-        allowed = {RecordType.RAW_SERIAL_CHUNK} if has_raw_chunks else {RecordType.VALID_RAW_FRAME}
+        allowed = (
+            {RecordType.RAW_SERIAL_CHUNK}
+            if has_raw_chunks
+            else {RecordType.VALID_RAW_FRAME, RecordType.BAD_FRAME_FRAGMENT}
+        )
     else:
         allowed = include_types
     return [

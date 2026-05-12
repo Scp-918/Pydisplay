@@ -85,10 +85,13 @@
 
 - [ ] Select a `raw_frames.bin` file.
 - [ ] Start raw bin replay.
-- [ ] Clean raw-bin replay does not report false bad frames or packet loss from debug-only raw-bin records.
+- [ ] Raw-bin replay follows the original recorded timing when the file contains `raw_serial_chunk` records.
+- [ ] Raw-bin replay includes invalid bytes through `raw_serial_chunk`; older files without raw chunks fall back to valid frames plus bad-frame fragments.
 - [ ] Select a `decoded.csv` file.
 - [ ] Start decoded csv replay.
 - [ ] Pause replay.
+- [ ] Click serial panel `暂停接收` during replay and confirm replay pauses.
+- [ ] Click serial panel `开始接收` after that and confirm replay resumes.
 - [ ] Resume replay.
 - [ ] Test `0.25x`, `0.5x`, `1x`, `2x`, `5x`.
 - [ ] Stop replay.

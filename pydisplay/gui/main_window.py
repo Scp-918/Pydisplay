@@ -14,6 +14,7 @@ GUI 主线程只做界面显示和 signal/slot 调度，不直接阻塞读串口
 
 from __future__ import annotations
 
+import queue
 import time
 
 from PySide6.QtCore import QTimer, Qt
@@ -33,7 +34,7 @@ from pydisplay.recorder.metadata import build_metadata
 from pydisplay.recorder.recorder_worker import RecorderWorker
 from pydisplay.replay.decoded_csv_reader import read_decoded_csv
 from pydisplay.replay.raw_bin_reader import RawReplayItem, read_raw_replay_items
-from pydisplay.replay.replay_worker import ReplayWorker
+from pydisplay.replay.replay_worker import ReplayState, ReplayWorker
 from pydisplay.services.health_monitor import HealthMonitor
 from pydisplay.services.pipeline import DataPipeline
 from pydisplay.version import __version__
@@ -62,6 +63,7 @@ class MainWindow(QMainWindow):
             on_state_changed=self._handle_serial_status,
         )
         self.replay_worker: ReplayWorker | None = None
+        self._replay_events: queue.Queue[tuple[str, object | None]] = queue.Queue()
 
         self.serial_panel = SerialPanel()
         self.control_panel = ControlPanel()
@@ -78,6 +80,10 @@ class MainWindow(QMainWindow):
         self.health_timer.setInterval(500)
         self.health_timer.timeout.connect(self._refresh_health)
         self.health_timer.start()
+        self.replay_timer = QTimer(self)
+        self.replay_timer.setInterval(10)
+        self.replay_timer.timeout.connect(self._drain_replay_events)
+        self.replay_timer.start()
         self.statusBar().showMessage(f"Pydisplay 上位机 v{__version__}")
         self.serial_panel.refresh_ports()
 
@@ -126,9 +132,9 @@ class MainWindow(QMainWindow):
         self.recorder_panel.start_recording_requested.connect(self._start_recording)
         self.recorder_panel.stop_recording_requested.connect(self._stop_recording)
         self.replay_panel.start_replay_requested.connect(self._start_replay)
-        self.replay_panel.pause_replay_requested.connect(lambda: self.replay_worker and self.replay_worker.pause())
-        self.replay_panel.resume_replay_requested.connect(lambda: self.replay_worker and self.replay_worker.resume())
-        self.replay_panel.stop_replay_requested.connect(lambda: self.replay_worker and self.replay_worker.stop())
+        self.replay_panel.pause_replay_requested.connect(self._pause_replay)
+        self.replay_panel.resume_replay_requested.connect(self._resume_replay)
+        self.replay_panel.stop_replay_requested.connect(self._stop_replay)
 
     def _open_serial(self, port: str, baudrate: int) -> None:
         """打开串口；真正读取由 SerialReader 后台线程完成。"""
@@ -148,20 +154,28 @@ class MainWindow(QMainWindow):
         self.health.set_states(serial_state=self._serial_state_text())
 
     def _start_receiving(self) -> None:
-        """继续从已打开串口读取数据。"""
-        if not self.serial_manager.is_connected():
-            self._show_error("接收不可用", "请先打开串口")
+        """继续从已打开串口读取数据；若当前是回放暂停，则继续回放。"""
+        if self.serial_manager.is_connected():
+            self.serial_manager.start_receiving()
+            self.health.set_states(serial_state=self._serial_state_text())
             return
-        self.serial_manager.start_receiving()
-        self.health.set_states(serial_state=self._serial_state_text())
+        if self.replay_worker and self.replay_worker.state == ReplayState.PAUSED:
+            self._resume_replay()
+            return
+        self._show_error("接收不可用", "请先打开串口，或先启动一个回放")
 
     def _pause_receiving(self) -> None:
-        """暂停后台串口读取，但保持串口连接和记录系统状态不变。"""
-        if not self.serial_manager.is_connected():
-            self._show_error("接收不可用", "请先打开串口")
-            return
-        self.serial_manager.pause_receiving()
-        self.health.set_states(serial_state=self._serial_state_text())
+        """暂停后台串口读取；如果正在回放，也同步暂停回放。"""
+        paused_any = False
+        if self.serial_manager.is_connected():
+            self.serial_manager.pause_receiving()
+            self.health.set_states(serial_state=self._serial_state_text())
+            paused_any = True
+        if self.replay_worker and self.replay_worker.state == ReplayState.PLAYING:
+            self._pause_replay()
+            paused_any = True
+        if not paused_any:
+            self._show_error("接收不可用", "当前没有正在接收或回放的数据")
 
     def _send_control(self, metadata) -> None:
         """发送控制命令；bytes 编码由 protocol.commands 完成。"""
@@ -208,6 +222,9 @@ class MainWindow(QMainWindow):
         if self.serial_manager.is_connected():
             self._show_error("回放不可用", "请先关闭实时串口连接")
             return
+        if self.replay_worker and self.replay_worker.state in {ReplayState.PLAYING, ReplayState.PAUSED}:
+            self._show_error("回放不可用", "已有回放正在运行，请先停止")
+            return
         try:
             if replay_type == "raw_frames.bin":
                 items = read_raw_replay_items(path)
@@ -216,12 +233,36 @@ class MainWindow(QMainWindow):
         except Exception as exc:
             self._show_error("回放文件错误", str(exc))
             return
+        if not items:
+            self._show_error("回放文件错误", "文件中没有可回放的数据记录")
+            return
 
         self.pipeline.reset_stream_state()
         self.health.reset_counters()
-        self.replay_worker = ReplayWorker(items, on_item=self._handle_replay_item, on_error=lambda exc: self._show_error("回放异常", str(exc)))
+        self._clear_replay_events()
+        self.replay_worker = ReplayWorker(
+            items,
+            on_item=lambda item: self._replay_events.put(("item", item)),
+            on_error=lambda exc: self._replay_events.put(("error", exc)),
+            on_finished=lambda: self._replay_events.put(("finished", None)),
+        )
         self.replay_worker.start(speed=speed)
         self.health.set_states(replay_state=self.replay_worker.state.name)
+
+    def _pause_replay(self) -> None:
+        if self.replay_worker:
+            self.replay_worker.pause()
+            self.health.set_states(replay_state=self.replay_worker.state.name)
+
+    def _resume_replay(self) -> None:
+        if self.replay_worker:
+            self.replay_worker.resume()
+            self.health.set_states(replay_state=self.replay_worker.state.name)
+
+    def _stop_replay(self) -> None:
+        if self.replay_worker:
+            self.replay_worker.stop()
+            self.health.set_states(replay_state=self.replay_worker.state.name)
 
     def _handle_replay_item(self, item) -> None:
         """处理回放 worker 投递的数据。"""
@@ -230,6 +271,30 @@ class MainWindow(QMainWindow):
         elif isinstance(item, DecodedSample):
             self._handle_decoded_sample(item)
             self.health.add_decoded_sample()
+
+    def _drain_replay_events(self) -> None:
+        """在 GUI 主线程消费回放事件，避免后台线程直接接触 Qt/绘图对象。"""
+        processed = 0
+        while processed < 200:
+            try:
+                kind, payload = self._replay_events.get_nowait()
+            except queue.Empty:
+                break
+            processed += 1
+            if kind == "item":
+                self._handle_replay_item(payload)
+            elif kind == "error":
+                self._show_error("回放异常", str(payload))
+            elif kind == "finished":
+                self.health.set_states(replay_state=ReplayState.FINISHED.name)
+                self.statusBar().showMessage("回放完成")
+
+    def _clear_replay_events(self) -> None:
+        while True:
+            try:
+                self._replay_events.get_nowait()
+            except queue.Empty:
+                break
 
     def _handle_decoded_sample(self, sample: DecodedSample) -> None:
         self.plot_panel.add_sample(sample)
