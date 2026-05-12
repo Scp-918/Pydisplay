@@ -23,7 +23,7 @@ Record header:
 | payload_length | uint32 | payload bytes |
 | payload | bytes | raw bytes |
 
-Normal raw-bin replay feeds only `raw_serial_chunk` records back through the parser when they exist. This is the preferred path because raw chunks preserve the original serial stream, including valid frames, invalid bytes, half packets, sticky packets, and the PC timestamps used for replay timing. `valid_raw_frame` and `bad_frame_fragment` are used only as a fallback for older/simpler captures that do not contain raw chunks.
+Normal GUI raw-bin replay first reads `raw_serial_chunk` records, extracts valid firmware frames with the real parser, then replays those complete raw frames through the parser/decoder path on a reconstructed 100 Hz frame clock. This is necessary because serial-read chunk timestamps are not sample timestamps: a chunk can contain only part of a frame or multiple frames. The frame clock uses `frame_seq` deltas, so confirmed sequence gaps leave corresponding time gaps. The original chunk-timestamp mode remains available in code for diagnostics; `valid_raw_frame` records are used as a fallback when no parseable raw chunks exist.
 
 Replay completion is based on the number of records read from the file. The format intentionally does not require an end marker, so a normal recording pause/resume cycle does not inject artificial records that would later affect replay.
 

@@ -8,9 +8,22 @@ import pytest
 from pydisplay.recorder.csv_writer import CSV_FIELDS, DecodedCsvWriter
 from pydisplay.recorder.raw_bin_format import RawBinWriter, RecordType
 from pydisplay.replay.decoded_csv_reader import DecodedCsvFormatError, read_decoded_csv
-from pydisplay.replay.raw_bin_reader import RawReplayItem, read_raw_replay_items
+from pydisplay.replay.raw_bin_reader import RawReplayItem, RawReplayTimingMode, read_raw_replay_items
 from pydisplay.replay.replay_worker import ReplayState, ReplayWorker
 from pydisplay.protocol.models import DecodedSample
+
+HEADER = b"\xAA\xBB"
+TAIL = b"\xCC"
+PAYLOAD_LENGTH = 45
+FRAME_INTERVAL_NS = 10_000_000
+
+
+def build_frame(frame_seq: int, payload_byte: int = 1) -> bytes:
+    payload = bytes([payload_byte]) * PAYLOAD_LENGTH
+    checksum = 0
+    for byte in payload:
+        checksum ^= byte
+    return HEADER + payload + bytes([checksum]) + frame_seq.to_bytes(2, "little") + TAIL
 
 
 def sample(index: int, t: float = 0.0) -> DecodedSample:
@@ -56,6 +69,48 @@ def test_read_raw_replay_items_prefers_raw_serial_chunks(tmp_path) -> None:
 
     assert items == [
         RawReplayItem(timestamp_ns=100, data=b"abc", record_type=RecordType.RAW_SERIAL_CHUNK),
+    ]
+
+
+def test_read_raw_replay_items_reconstructs_100hz_frames_from_raw_chunks(tmp_path) -> None:
+    path = tmp_path / "raw_frames.bin"
+    frame1 = build_frame(100, payload_byte=1)
+    frame2 = build_frame(101, payload_byte=2)
+    with RawBinWriter(path, created_unix_ns=1) as writer:
+        writer.write_record(RecordType.RAW_SERIAL_CHUNK, 1_000_000_000, frame1[:1])
+        writer.write_record(RecordType.RAW_SERIAL_CHUNK, 1_005_000_000, frame1[1:] + frame2)
+
+    items = read_raw_replay_items(path)
+
+    assert [item.data for item in items] == [frame1, frame2]
+    assert [item.record_type for item in items] == [RecordType.VALID_RAW_FRAME, RecordType.VALID_RAW_FRAME]
+    assert [item.timestamp_ns for item in items] == [1_005_000_000, 1_005_000_000 + FRAME_INTERVAL_NS]
+
+
+def test_read_raw_replay_items_preserves_sequence_gaps_in_frame_clock(tmp_path) -> None:
+    path = tmp_path / "raw_frames.bin"
+    frame1 = build_frame(100, payload_byte=1)
+    frame2 = build_frame(103, payload_byte=2)
+    with RawBinWriter(path, created_unix_ns=1) as writer:
+        writer.write_record(RecordType.RAW_SERIAL_CHUNK, 1_000_000_000, frame1 + frame2)
+
+    items = read_raw_replay_items(path)
+
+    assert [item.timestamp_ns for item in items] == [1_000_000_000, 1_000_000_000 + 3 * FRAME_INTERVAL_NS]
+
+
+def test_read_raw_replay_items_can_use_original_chunk_timestamps(tmp_path) -> None:
+    path = tmp_path / "raw_frames.bin"
+    frame = build_frame(100)
+    with RawBinWriter(path, created_unix_ns=1) as writer:
+        writer.write_record(RecordType.RAW_SERIAL_CHUNK, 100, frame[:1])
+        writer.write_record(RecordType.RAW_SERIAL_CHUNK, 200, frame[1:])
+
+    items = read_raw_replay_items(path, timing_mode=RawReplayTimingMode.ORIGINAL_TIMESTAMPS)
+
+    assert items == [
+        RawReplayItem(timestamp_ns=100, data=frame[:1], record_type=RecordType.RAW_SERIAL_CHUNK),
+        RawReplayItem(timestamp_ns=200, data=frame[1:], record_type=RecordType.RAW_SERIAL_CHUNK),
     ]
 
 

@@ -152,24 +152,33 @@ def _wait_while_paused(stop_event: threading.Event, pause_event: threading.Event
 
 
 def _sleep_interruptible(delay_s: float, stop_event: threading.Event, pause_event: threading.Event) -> bool:
-    """按原始时间戳等待，同时支持 stop 和 pause。
+    """按回放节拍等待，同时支持 stop 和 pause。
 
-    早期实现遇到 pause 会直接跳出 sleep，然后继续投递当前 item，导致点击暂停后
-    仍可能多回放一条数据。这里把“暂停耗时”从播放延迟中剔除，恢复后继续等剩余
-    原始间隔。
+    Windows 普通 sleep 对 5-10 ms 的短间隔可能明显超时。这里用 perf_counter
+    计算绝对 deadline：大于数毫秒时短 sleep，最后阶段只 yield，减少短 sleep
+    粒度造成的累计误差。pause 期间不消耗剩余等待时间。
     """
-    remaining = max(0.0, delay_s)
-    last = time.monotonic()
-    while remaining > 0 and not stop_event.is_set():
+    if delay_s <= 0:
+        return not stop_event.is_set()
+
+    deadline = time.perf_counter() + delay_s
+    while not stop_event.is_set():
         if pause_event.is_set():
+            pause_start = time.perf_counter()
             if not _wait_while_paused(stop_event, pause_event):
                 return False
-            last = time.monotonic()
+            deadline += time.perf_counter() - pause_start
             continue
-        wait_s = min(0.01, remaining)
-        if stop_event.wait(wait_s):
-            return False
-        now = time.monotonic()
-        remaining -= now - last
-        last = now
-    return not stop_event.is_set()
+
+        remaining = deadline - time.perf_counter()
+        if remaining <= 0:
+            return True
+
+        if remaining > 0.004:
+            wait_s = min(0.002, remaining - 0.002)
+            if stop_event.wait(wait_s):
+                return False
+        else:
+            # 让出时间片但不请求毫秒级 sleep，降低 Windows timer 粒度影响。
+            time.sleep(0)
+    return False

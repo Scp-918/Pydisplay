@@ -266,7 +266,7 @@ Uh1..Uh4, Uc1..Uc4, UD1, UD2, parser_valid
 
 支持两类文件：
 
-1. `raw_frames.bin`：重新走 parser/decoder，更接近真实链路。新记录文件会优先回放 `raw_serial_chunk`，也就是串口线程当时真正读到的原始 bytes。它本身已经包含有效帧、无效帧、半包和粘包，所以默认回放节奏会使用 bin 文件中保存的原始 PC 时间戳，而不是强行按固定 100 Hz 重建。如果旧文件里没有 raw chunk，程序才退回回放完整有效帧和坏帧片段；
+1. `raw_frames.bin`：重新走 parser/decoder，更接近真实链路。程序会先读取 bin 文件里的 `raw_serial_chunk`，用真实 parser 从这些原始 bytes 中提取有效固件帧，然后按固件 `frame_seq` 重建 100 Hz 帧节拍，再把完整 raw frame 重新送进 parser/decoder。这样做的原因是：串口线程的一次 read 不一定正好是一帧，可能只读到单独的 `AA`，也可能一次读到两帧；如果直接使用 chunk 的 PC 时间戳回放，就会出现成组投递和速度偏慢，看起来可能只有约 50 Hz。现在默认回放不修改原始 bin 文件，只修正上位机对回放时间轴的解释；
 2. `decoded.csv`：直接恢复 decoded sample，适合无硬件调试界面。因为当前 CSV 不再保存时间戳，回放时会按 100 Hz 用行号生成时间。
 
 支持速度：
@@ -278,6 +278,14 @@ Uh1..Uh4, Uc1..Uc4, UD1, UD2, parser_valid
 也支持暂停、继续、停止。
 
 回放结束不依赖“文件末尾结束标志”。程序在读入 raw bin 时已经知道可回放记录数量，ReplayWorker 播放完这些记录后会自动进入 `FINISHED` 状态。这样设计的好处是：如果实验中途正常暂停记录、稍后继续记录，不会因为额外插入的“结束标志”干扰后续回放。
+
+如果你发现 raw bin 回放速度和原始采集不一致，可以先用下面的命令检查文件内容：
+
+```powershell
+python scripts\inspect_raw_bin.py D:\你的记录目录\raw_frames.bin
+```
+
+如果里面有很多 1 字节或一次包含多帧的 `raw_serial_chunk`，这是正常现象，不表示 bin 文件损坏。当前 GUI 默认使用 100 Hz 帧节拍重建来消除这种串口 chunk 抖动。
 
 ## 11. GUI 结构
 

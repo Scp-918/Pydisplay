@@ -85,8 +85,9 @@
 
 - [ ] Select a `raw_frames.bin` file.
 - [ ] Start raw bin replay.
-- [ ] Raw-bin replay follows the original recorded timing when the file contains `raw_serial_chunk` records.
-- [ ] Raw-bin replay includes invalid bytes through `raw_serial_chunk`; older files without raw chunks fall back to valid frames plus bad-frame fragments.
+- [ ] Raw-bin replay reconstructs a stable 100 Hz frame clock from parsed raw frames.
+- [ ] Raw-bin replay does not show false loss/error when a no-error recording is replayed.
+- [ ] Raw-bin replay still runs raw frames through the parser/decoder path.
 - [ ] Select a `decoded.csv` file.
 - [ ] Start decoded csv replay.
 - [ ] Pause replay.

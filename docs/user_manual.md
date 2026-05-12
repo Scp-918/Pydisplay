@@ -40,7 +40,7 @@ Set the record path and experiment name, then click `开始记录`. Clicking `�
 
 ## Replay Workflow
 
-Choose either `raw_frames.bin` or `decoded.csv`, select a speed, then start replay. Realtime serial mode and replay mode should not be used at the same time in this initial version. Raw replay uses raw serial chunks and their stored PC timestamps when available, so the default rhythm follows the original capture. These chunks already include invalid bytes. If an older bin has no raw chunks, replay falls back to valid raw frames plus bad-frame fragments. Decoded CSV replay synthesizes 100 Hz timing from row order.
+Choose either `raw_frames.bin` or `decoded.csv`, select a speed, then start replay. Realtime serial mode and replay mode should not be used at the same time in this initial version. Raw replay reads raw serial chunks, extracts valid firmware frames with the real parser, and replays complete raw frames on a reconstructed 100 Hz frame clock. This avoids treating irregular serial-read chunk timestamps as sample timestamps. If an older bin has no parseable raw chunks, replay falls back to complete valid raw frames. Decoded CSV replay synthesizes 100 Hz timing from row order.
 
 Replay stops automatically after the loaded record count is consumed; raw bin files do not need an end marker.
 
