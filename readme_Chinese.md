@@ -36,7 +36,7 @@ Pydisplay 只直接操作电脑上的串口，也就是 HJ380 对应的 COM 口�
 
 ```powershell
 conda activate Pydisplay_env
-cd D:\Desktop\STM32G474\Pydisplay
+cd D:\研究生学业\科研项目\研四-脉冲加热\程序开发\代码汇总\上位机采集程序\Pydisplay
 python -m pydisplay
 ```
 
