@@ -10,6 +10,7 @@ import csv
 from pathlib import Path
 from typing import TextIO
 
+from pydisplay.protocol.constants import ADC_SLOT_FIELD_NAMES
 from pydisplay.protocol.models import DecodedSample
 
 
@@ -18,25 +19,7 @@ CSV_FIELDS = [
     "absolute_seq_u64",
     "segment_id",
     "sample_seq",
-    "PPG_G",
-    "PPG_R",
-    "PPG_IR",
-    "ACC_X",
-    "ACC_Y",
-    "ACC_Z",
-    "GYRO_X",
-    "GYRO_Y",
-    "GYRO_Z",
-    "Uh1",
-    "Uh2",
-    "Uh3",
-    "Uh4",
-    "Uc1",
-    "Uc2",
-    "Uc3",
-    "Uc4",
-    "UD1",
-    "UD2",
+    *ADC_SLOT_FIELD_NAMES,
     "parser_valid",
 ]
 
@@ -81,29 +64,13 @@ class DecodedCsvWriter:
 
 def sample_to_csv_row(sample: DecodedSample) -> dict[str, object]:
     """把 dataclass 字段转换成 CSV 表头对应的字典。"""
-    return {
+    row: dict[str, object] = {
         "frame_seq": "" if sample.frame_seq is None else sample.frame_seq,
         "absolute_seq_u64": "" if sample.absolute_seq_u64 is None else sample.absolute_seq_u64,
         "segment_id": sample.segment_id,
         "sample_seq": "" if sample.sample_seq is None else sample.sample_seq,
-        "PPG_G": sample.ppg_g,
-        "PPG_R": sample.ppg_r,
-        "PPG_IR": sample.ppg_ir,
-        "ACC_X": sample.acc_x,
-        "ACC_Y": sample.acc_y,
-        "ACC_Z": sample.acc_z,
-        "GYRO_X": sample.gyro_x,
-        "GYRO_Y": sample.gyro_y,
-        "GYRO_Z": sample.gyro_z,
-        "Uh1": sample.uh1,
-        "Uh2": sample.uh2,
-        "Uh3": sample.uh3,
-        "Uh4": sample.uh4,
-        "Uc1": sample.uc1,
-        "Uc2": sample.uc2,
-        "Uc3": sample.uc3,
-        "Uc4": sample.uc4,
-        "UD1": sample.ud1,
-        "UD2": sample.ud2,
         "parser_valid": sample.parser_valid,
     }
+    for field in ADC_SLOT_FIELD_NAMES:
+        row[field] = getattr(sample, field)
+    return row

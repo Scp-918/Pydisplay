@@ -5,8 +5,8 @@ from pydisplay.protocol.parser import FrameParser
 
 HEADER = b"\xAA\xBB"
 TAIL = b"\xCC"
-FRAME_LENGTH = 51
-PAYLOAD_LENGTH = 45
+FRAME_LENGTH = 99
+PAYLOAD_LENGTH = 93
 
 
 def build_frame(payload: bytes | None = None, *, frame_seq: int = 0) -> bytes:
@@ -26,11 +26,11 @@ def test_parser_emits_single_valid_frame() -> None:
 
     assert len(frames) == 1
     assert frames[0].raw == frame
-    assert frames[0].payload == frame[2:47]
+    assert frames[0].payload == frame[2:95]
     assert frames[0].frame_seq == 0
     assert frames[0].timestamp_ns == 123
     assert frames[0].checksum_ok is True
-    assert parser.stats.total_bytes == 51
+    assert parser.stats.total_bytes == 99
     assert parser.stats.total_frames == 1
     assert parser.stats.valid_frames == 1
     assert parser.stats.bad_frames == 0
@@ -64,7 +64,7 @@ def test_parser_discards_noise_but_keeps_half_header() -> None:
 def test_parser_recovers_after_bad_checksum() -> None:
     parser = FrameParser()
     bad = bytearray(build_frame(bytes([3]) * PAYLOAD_LENGTH))
-    bad[47] ^= 0xFF
+    bad[95] ^= 0xFF
     good = build_frame(bytes([4]) * PAYLOAD_LENGTH)
 
     frames = parser.feed(bytes(bad) + good)
@@ -79,7 +79,7 @@ def test_parser_recovers_after_bad_checksum() -> None:
 def test_parser_recovers_after_bad_tail() -> None:
     parser = FrameParser()
     bad = bytearray(build_frame(bytes([5]) * PAYLOAD_LENGTH))
-    bad[50] = 0x00
+    bad[98] = 0x00
     good = build_frame(bytes([6]) * PAYLOAD_LENGTH)
 
     frames = parser.feed(bytes(bad) + good)
@@ -97,13 +97,13 @@ def test_parser_extracts_uint16_little_endian_frame_seq() -> None:
     frames = parser.feed(frame)
 
     assert len(frames) == 1
-    assert len(frames[0].raw) == 51
+    assert len(frames[0].raw) == 99
     assert frames[0].frame_seq == 0x1234
     assert frames[0].sample_seq == 1
 
 
 def test_parser_caps_buffer_growth() -> None:
-    parser = FrameParser(max_buffer_bytes=64)
+    parser = FrameParser(max_buffer_bytes=128)
 
     frames = parser.feed(b"\x10" * 500)
 

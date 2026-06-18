@@ -2,11 +2,11 @@
 
 ## 1. Firmware Source
 
-- Repo: https://github.com/Scp-918/PulseTIMR2/tree/Single
-- Branch: Single
-- Commit: `3714333572dc985c407dbb680183785cc0b92b66`
-- Local analysis path: `.codex_firmware/PulseTIMR2`
-- Analysis date: 2026-05-10; sequence protocol update applied 2026-05-11
+- Repo: https://github.com/Scp-918/PulseTIMR2/tree/debugADC
+- Branch: debugADC
+- Commit: local debug branch
+- Local analysis path: `D:\Desktop\STM32G474\PulseTIMR2`
+- Analysis date: 2026-06-18 debugADC raw-slot protocol update
 - Target MCU: STM32G474
 - Build system: CMake
 
@@ -29,14 +29,14 @@ Searched required protocol and sensor keywords including `0xAA`, `0xBB`, `0xCC`,
 | Data link | USART1 through BLE transparent serial, target baudrate 460800 | `README.md:205`, `Core/Src/usart.c:43-44`, `Core/Inc/ble.h:16` |
 | Data frame header | `0xAA 0xBB` | `Core/Inc/ble_comm.h:36-37`, `Core/Src/ble_comm.c:72-73` |
 | Data frame tail | `0xCC` | `Core/Inc/ble_comm.h:38`, `Core/Src/ble_comm.c:122-123` |
-| Data frame length | Fixed 51 bytes in the 2026-05-11 sequence-number protocol update | User-supplied firmware update format, based on `https://github.com/Scp-918/PulseTIMR2/tree/Single` |
-| Payload length | 45 bytes, byte 2 through byte 46 | `Core/Inc/ble_comm.h:44-59`, `Core/Src/ble_comm.c:75-114` |
-| Checksum | XOR of bytes `[2..46]`, header and tail excluded | `Core/Inc/ble_comm.h:61-66`, `Core/Src/ble_comm.c:115-120`, `README.md:213` |
+| Data frame length | Fixed 99 bytes in debugADC raw-slot protocol | `Core/Inc/ble_comm.h`, `Core/Src/ble_comm.c` |
+| Payload length | 93 bytes, byte 2 through byte 94 | `Core/Inc/ble_comm.h`, `Core/Src/ble_comm.c` |
+| Checksum | XOR of bytes `[2..94]`, header and tail excluded | `Core/Inc/ble_comm.h`, `Core/Src/ble_comm.c` |
 | Byte order | Data payload values are little-endian in BLE frame | `Core/Src/ble_comm.c:27-52`, `README.md:207` |
-| Frame sequence | Present at bytes 48..49 as uint16 little-endian source frame sequence | User-supplied 2026-05-11 protocol update |
+| Frame sequence | Present at bytes 96..97 as uint16 little-endian source frame sequence | debugADC protocol update |
 | Firmware timestamp | Not present in data frame | No timestamp field in `Core/Inc/ble_comm.h:41-62`; search found only timeout uses of `HAL_GetTick` |
 | Nominal output cadence | 4-phase 400 Hz state machine produces one fused frame per phase-4 cycle, intended 100 Hz | `Core/Src/main.c:831-835`, `Core/Src/main.c:883-887` |
-| Active TX path | Main loop packs one data frame and sends it by UART DMA when pending; current upper-computer parser expects the 51-byte frame with frame_seq | `Core/Src/main.c:1035-1040`; user-supplied 2026-05-11 protocol update |
+| Active TX path | Main loop packs one data frame and sends it by UART DMA when pending; current upper-computer parser expects the 99-byte debugADC frame with frame_seq | `Core/Src/main.c`; debugADC protocol update |
 | Control frame | 13 bytes, header `0xAB 0xCD`, tail `0xEF 0xFA`, no checksum field found | `Core/Src/main.c:64-78`, `Core/Src/main.c:451-504`, `README.md:216-230` |
 | Control ACK | Confirmed no ACK/NACK response for sensor parameter frame | User confirmation 2026-05-10; `Core/Src/main.c:517-530`, `Core/Src/main.c:1164-1195`; only internal `g_sensor_cfg_apply_error` |
 | Protocol version | Not found | `rg protocol_version/PROTOCOL_VERSION/version` found no frame version definition |
@@ -47,36 +47,29 @@ Single data frame:
 
 ```text
 0..1   header: 0xAA 0xBB
-2..46  payload
-47     checksum: XOR(bytes 2..46)
-48..49 frame_seq: uint16 little-endian source frame sequence
-50     tail: 0xCC
+2..94  payload
+95     checksum: XOR(bytes 2..94)
+96..97 frame_seq: uint16 little-endian source frame sequence
+98     tail: 0xCC
 ```
 
 Payload fields:
 
 | Offset | Field | Bytes | Type | Signed | Endian | Scale / decode | Source |
 |---:|---|---:|---|---|---|---|---|
-| 2 | Uc1 / adc_ch1_early_code | 3 | int24 stored from `int32_t` low 24 bits | signed raw code | little | `volts = signed_int24 * (4.096 / 131072.0)` | `Core/Src/ble_comm.c:81-89`, `Core/Src/main.c:607-630`; user confirmation 2026-05-10 |
-| 5 | Uh1 / adc_ch1_late_code | 3 | int24 stored from `int32_t` low 24 bits | signed raw code | little | same as above | same as above |
-| 8 | Uc2 / adc_ch2_early_code | 3 | int24 stored from `int32_t` low 24 bits | signed raw code | little | same as above | same as above |
-| 11 | Uh2 / adc_ch2_late_code | 3 | int24 stored from `int32_t` low 24 bits | signed raw code | little | same as above | same as above |
-| 14 | Uc3 / adc_ch3_early_code | 3 | int24 stored from `int32_t` low 24 bits | signed raw code | little | same as above | same as above |
-| 17 | Uh3 / adc_ch3_late_code | 3 | int24 stored from `int32_t` low 24 bits | signed raw code | little | same as above | same as above |
-| 20 | Uc4 / adc_ch4_early_code | 3 | int24 stored from `int32_t` low 24 bits | signed raw code | little | same as above | same as above |
-| 23 | Uh4 / adc_ch4_late_code | 3 | int24 stored from `int32_t` low 24 bits | signed raw code | little | same as above | same as above |
-| 26 | PPG_G | 3 | uint24 | unsigned | little | Firmware-aligned MAX30101 raw count | `Core/Src/ble_comm.c:92-101`, `Core/Src/MAX30101.c:577-596` |
-| 29 | PPG_R | 3 | uint24 | unsigned | little | Firmware-aligned MAX30101 raw count | same as above |
-| 32 | PPG_IR | 3 | uint24 | unsigned | little | Firmware-aligned MAX30101 raw count | same as above |
-| 35 | GYRO_X | 2 | int16 | signed | little | `dps = raw * mdps_per_lsb / 1000` | `Core/Src/ble_comm.c:104-113`, `Core/Src/LSM9DS1.c:212-217`, `Core/Src/LSM9DS1.c:587-590` |
-| 37 | GYRO_Y | 2 | int16 | signed | little | same as above | same as above |
-| 39 | GYRO_Z | 2 | int16 | signed | little | same as above | same as above |
-| 41 | ACC_X | 2 | int16 | signed | little | `g = raw * mg_per_lsb / 1000` | `Core/Src/ble_comm.c:104-113`, `Core/Src/LSM9DS1.c:212-217`, `Core/Src/LSM9DS1.c:581-584` |
-| 43 | ACC_Y | 2 | int16 | signed | little | same as above | same as above |
-| 45 | ACC_Z | 2 | int16 | signed | little | same as above | same as above |
-| 47 | checksum | 1 | uint8 | unsigned | n/a | XOR of bytes 2..46 | `Core/Src/ble_comm.c:115-120` |
-| 48 | frame_seq | 2 | uint16 | unsigned | little | source-side firmware frame sequence; not included in checksum | User-supplied 2026-05-11 protocol update |
-| 50 | tail | 1 | uint8 | unsigned | n/a | `0xCC` | User-supplied 2026-05-11 protocol update |
+| 2..73 | adc_ch1_slot0..adc_ch4_slot5 | 72 | 24 x int24 stored from `int32_t` low 24 bits | signed raw code | little | AD4007 raw slot code, not converted to volts in debug UI | `Core/Src/main.c`, `Core/Src/ble_comm.c` |
+| 74 | PPG_G | 3 | uint24 | unsigned | little | Retained in raw frame, not decoded for debug UI | `Core/Src/ble_comm.c`, `Core/Src/MAX30101.c` |
+| 77 | PPG_R | 3 | uint24 | unsigned | little | Retained in raw frame, not decoded for debug UI | same as above |
+| 80 | PPG_IR | 3 | uint24 | unsigned | little | Retained in raw frame, not decoded for debug UI | same as above |
+| 83 | GYRO_X | 2 | int16 | signed | little | Retained in raw frame, not decoded for debug UI | `Core/Src/ble_comm.c`, `Core/Src/LSM9DS1.c` |
+| 85 | GYRO_Y | 2 | int16 | signed | little | Retained in raw frame, not decoded for debug UI | same as above |
+| 87 | GYRO_Z | 2 | int16 | signed | little | Retained in raw frame, not decoded for debug UI | same as above |
+| 89 | ACC_X | 2 | int16 | signed | little | Retained in raw frame, not decoded for debug UI | same as above |
+| 91 | ACC_Y | 2 | int16 | signed | little | Retained in raw frame, not decoded for debug UI | same as above |
+| 93 | ACC_Z | 2 | int16 | signed | little | Retained in raw frame, not decoded for debug UI | same as above |
+| 95 | checksum | 1 | uint8 | unsigned | n/a | XOR of bytes 2..94 | `Core/Src/ble_comm.c` |
+| 96 | frame_seq | 2 | uint16 | unsigned | little | source-side firmware frame sequence; not included in checksum | debugADC protocol update |
+| 98 | tail | 1 | uint8 | unsigned | n/a | `0xCC` | debugADC protocol update |
 
 Important mapping note: firmware order for IMU is `Gx, Gy, Gz, Ax, Ay, Az`, not acceleration first. The Python decoder should expose both source order and user-facing names clearly.
 
@@ -84,13 +77,13 @@ Important mapping note: firmware order for IMU is `Gx, Gy, Gz, Ax, Ay, Az`, not 
 
 Confirmed:
 
-- ADC payload covers 4 phase/state channels, each with `early_code` and `late_code`.
-- Each transmitted ADC value is written as the low 24 bits of an `int32_t` in little-endian order.
-- AD4007 raw acquisition decodes 24-bit SPI data by right-shifting 6 bits, masking 18 bits, sign-extending bit 17, and averaging samples.
+- ADC payload covers 4 phase/state channels, each with 6 raw slots.
+- Slot order is the firmware trigger order: slot0..2 are early-window CNV results; slot3..5 are late-window CNV results.
+- Each transmitted ADC slot is written as the low 24 bits of an `int32_t` in little-endian order.
+- AD4007 raw acquisition decodes 24-bit SPI data by right-shifting 6 bits, masking 18 bits, and sign-extending bit 17. The debugADC branch sends each decoded raw slot without averaging.
 - Firmware defines `AD4007_VREF = 4.096f`.
-- User confirmation on 2026-05-10 maps `adc_data[ch].early_code` to `Uc` and `adc_data[ch].late_code` to `Uh`.
 - The 4 transmitted ADC channels map in frame order to experiment channels `1..4`.
-- PC-side AD4007 conversion uses no external offset and the 17-bit full-scale denominator:
+- PC-side debug UI plots raw signed int24 codes. If a later analysis needs volts, the previous conversion reference is:
 
 ```text
 temp32 = data[0] + data[1] * 256 + data[2] * 65536
@@ -227,24 +220,20 @@ Receive/apply flow:
 - Main loop fetches received bytes and queues validated sensor parameters: `Core/Src/main.c:1044-1055`.
 - Phase 1 applies PPG parameters; Phase 2 applies IMU parameters and starts a 100-cycle send hold window: `Core/Src/main.c:1164-1195`.
 
-## 9. UD Decode Status
+## 9. debugADC Decode Status
 
-The requested PC-side formula is:
+The debugADC branch decodes only these fields into `DecodedSample`:
 
 ```text
-UD = (Uh - Uc) / (k - Uc)
+adc_ch1_slot0..adc_ch1_slot5
+adc_ch2_slot0..adc_ch2_slot5
+adc_ch3_slot0..adc_ch3_slot5
+adc_ch4_slot0..adc_ch4_slot5
 ```
 
-Firmware source checked in this analysis does not define the PC-facing names `Uh`, `Uc`, `UD`, `UD1`, or `UD2`. It transmits four ADC channels with `early_code` and `late_code`.
+Each field is a signed int24 AD4007 raw code. Slot `0..2` are early-window CNV results and slot `3..5` are late-window CNV results. PPG and IMU bytes remain in the raw frame for continuity, but the debugADC Python decoder, CSV writer, and GUI do not expose them.
 
-User confirmation on 2026-05-10 defines the mapping required for Python decoding:
-
-- `early_code` is `Uc`.
-- `late_code` is `Uh`.
-- Frame ADC channel order maps directly to experiment channels `1..4`.
-- `UD1` uses channel 2: `UD1 = (Uh2 - Uc2) / (k - Uc2)`.
-- `UD2` uses channel 3: `UD2 = (Uh3 - Uc3) / (k - Uc3)`.
-- If `abs(k - Uc)` is near zero, the decoder must not crash; it should return `NaN` and record a warning.
+The previous Uh/Uc/UD voltage decoder is intentionally disabled on this branch because the purpose is to inspect whether all six ADC slots are captured.
 
 ## 10. Open Questions
 

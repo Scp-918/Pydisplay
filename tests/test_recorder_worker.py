@@ -8,30 +8,13 @@ from pydisplay.recorder.recorder_worker import RecorderWorker, RecordingState
 
 
 def make_sample() -> DecodedSample:
+    adc_fields = {f"adc_ch{channel}_slot{slot}": channel * 100 + slot for channel in range(1, 5) for slot in range(6)}
     return DecodedSample(
         timestamp_pc_ns=100,
         relative_time_s=0.1,
         frame_seq=None,
         sample_seq=1,
-        ppg_g=1,
-        ppg_r=2,
-        ppg_ir=3,
-        acc_x=0.0,
-        acc_y=0.0,
-        acc_z=1.0,
-        gyro_x=0.0,
-        gyro_y=0.0,
-        gyro_z=0.0,
-        uh1=1,
-        uh2=2,
-        uh3=3,
-        uh4=4,
-        uc1=0.5,
-        uc2=1,
-        uc3=1.5,
-        uc4=2,
-        ud1=0.25,
-        ud2=0.4,
+        **adc_fields,
     )
 
 
@@ -54,7 +37,7 @@ def test_recorder_worker_writes_all_session_files_and_end_time(tmp_path) -> None
         RecordType.RAW_SERIAL_CHUNK,
         RecordType.VALID_RAW_FRAME,
     ]
-    assert "PPG_G" in (session_dir / "decoded.csv").read_text(encoding="utf-8")
+    assert "adc_ch1_slot0" in (session_dir / "decoded.csv").read_text(encoding="utf-8")
 
     metadata = json.loads((session_dir / "metadata.json").read_text(encoding="utf-8"))
     assert metadata["session"]["record_start_time"] is not None

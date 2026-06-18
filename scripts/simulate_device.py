@@ -14,7 +14,7 @@ def main() -> int:
     print("simulation only, not firmware protocol")
     for index in range(5):
         sample = generate_mock_decoded_sample(index)
-        print(index, sample.relative_time_s, sample.ppg_g, sample.ud1)
+        print(index, sample.relative_time_s, sample.adc_ch1_slot0, sample.adc_ch4_slot5)
     return 0
 
 

@@ -14,6 +14,8 @@ from typing import Any
 
 from pydisplay import __version__
 from pydisplay.protocol.constants import (
+    ADC_SLOT_FIELD_NAMES,
+    ADC_SLOT_OFFSETS,
     BYTE_ORDER,
     FRAME_HEADER,
     FRAME_LENGTH,
@@ -25,9 +27,9 @@ from .csv_writer import CSV_FIELDS
 from .raw_bin_format import FORMAT_VERSION
 
 
-FIRMWARE_REPO = "https://github.com/Scp-918/PulseTIMR2/tree/Single"
-FIRMWARE_BRANCH = "Single"
-FIRMWARE_COMMIT = "3714333572dc985c407dbb680183785cc0b92b66"
+FIRMWARE_REPO = "https://github.com/Scp-918/PulseTIMR2/tree/debugADC"
+FIRMWARE_BRANCH = "debugADC"
+FIRMWARE_COMMIT = None
 
 
 def build_metadata(
@@ -60,7 +62,7 @@ def build_metadata(
         },
         "serial": {"port": serial_port, "baudrate": baudrate, "device": "HJ380"},
         "bluetooth": {"tx_module": "HJ131", "rx_module": "HJ380"},
-        "decode": {"k": k, "ud_formula": "UD = (Uh - Uc) / (k - Uc)"},
+        "decode": {"k": k, "debug_adc": "4 channels x 6 signed int24 raw AD4007 slot codes"},
         "control_parameters": control_parameters
         or {
             "ppg_mode": None,
@@ -75,31 +77,10 @@ def build_metadata(
             "frame_length": FRAME_LENGTH,
             "payload_length": PAYLOAD_LENGTH,
             "byte_order": BYTE_ORDER,
-            "checksum": "xor bytes 2..46",
+            "checksum": "xor bytes 2..94",
             "protocol_version": PROTOCOL_VERSION,
             "raw_bin_format_version": FORMAT_VERSION,
-            "field_layout": [
-                {"offset": 2, "field": "Uc1", "bytes": 3, "type": "int24"},
-                {"offset": 5, "field": "Uh1", "bytes": 3, "type": "int24"},
-                {"offset": 8, "field": "Uc2", "bytes": 3, "type": "int24"},
-                {"offset": 11, "field": "Uh2", "bytes": 3, "type": "int24"},
-                {"offset": 14, "field": "Uc3", "bytes": 3, "type": "int24"},
-                {"offset": 17, "field": "Uh3", "bytes": 3, "type": "int24"},
-                {"offset": 20, "field": "Uc4", "bytes": 3, "type": "int24"},
-                {"offset": 23, "field": "Uh4", "bytes": 3, "type": "int24"},
-                {"offset": 26, "field": "PPG_G", "bytes": 3, "type": "uint24"},
-                {"offset": 29, "field": "PPG_R", "bytes": 3, "type": "uint24"},
-                {"offset": 32, "field": "PPG_IR", "bytes": 3, "type": "uint24"},
-                {"offset": 35, "field": "GYRO_X", "bytes": 2, "type": "int16"},
-                {"offset": 37, "field": "GYRO_Y", "bytes": 2, "type": "int16"},
-                {"offset": 39, "field": "GYRO_Z", "bytes": 2, "type": "int16"},
-                {"offset": 41, "field": "ACC_X", "bytes": 2, "type": "int16"},
-                {"offset": 43, "field": "ACC_Y", "bytes": 2, "type": "int16"},
-                {"offset": 45, "field": "ACC_Z", "bytes": 2, "type": "int16"},
-                {"offset": 47, "field": "checksum", "bytes": 1, "type": "uint8", "note": "xor bytes 2..46"},
-                {"offset": 48, "field": "frame_seq", "bytes": 2, "type": "uint16 little-endian"},
-                {"offset": 50, "field": "tail", "bytes": 1, "type": "uint8"},
-            ],
+            "field_layout": _debug_adc_field_layout(),
         },
         "csv_fields": {field: _csv_field_description(field) for field in CSV_FIELDS},
     }
@@ -124,4 +105,30 @@ def _csv_field_description(field: str) -> str:
         "sample_seq": "PC parser sample sequence",
         "parser_valid": "Whether parser accepted the source frame",
     }
+    if field in ADC_SLOT_FIELD_NAMES:
+        return "AD4007 signed int24 raw slot code"
     return descriptions.get(field, f"Decoded field {field}")
+
+
+def _debug_adc_field_layout() -> list[dict[str, Any]]:
+    fields = [
+        {"offset": offset, "field": field, "bytes": 3, "type": "int24", "note": "signed AD4007 raw slot code"}
+        for field, offset in ADC_SLOT_OFFSETS.items()
+    ]
+    fields.extend(
+        [
+            {"offset": 74, "field": "PPG_G", "bytes": 3, "type": "uint24", "note": "retained in raw frame, not decoded for debug UI"},
+            {"offset": 77, "field": "PPG_R", "bytes": 3, "type": "uint24", "note": "retained in raw frame, not decoded for debug UI"},
+            {"offset": 80, "field": "PPG_IR", "bytes": 3, "type": "uint24", "note": "retained in raw frame, not decoded for debug UI"},
+            {"offset": 83, "field": "GYRO_X", "bytes": 2, "type": "int16", "note": "retained in raw frame, not decoded for debug UI"},
+            {"offset": 85, "field": "GYRO_Y", "bytes": 2, "type": "int16", "note": "retained in raw frame, not decoded for debug UI"},
+            {"offset": 87, "field": "GYRO_Z", "bytes": 2, "type": "int16", "note": "retained in raw frame, not decoded for debug UI"},
+            {"offset": 89, "field": "ACC_X", "bytes": 2, "type": "int16", "note": "retained in raw frame, not decoded for debug UI"},
+            {"offset": 91, "field": "ACC_Y", "bytes": 2, "type": "int16", "note": "retained in raw frame, not decoded for debug UI"},
+            {"offset": 93, "field": "ACC_Z", "bytes": 2, "type": "int16", "note": "retained in raw frame, not decoded for debug UI"},
+            {"offset": 95, "field": "checksum", "bytes": 1, "type": "uint8", "note": "xor bytes 2..94"},
+            {"offset": 96, "field": "frame_seq", "bytes": 2, "type": "uint16 little-endian"},
+            {"offset": 98, "field": "tail", "bytes": 1, "type": "uint8"},
+        ]
+    )
+    return fields

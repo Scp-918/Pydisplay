@@ -80,30 +80,36 @@ class DecodedSample:
     """一条已经解码完成的数据样本。
 
     字段名和 `decoded.csv`、GUI 曲线 key 保持一致，避免转换时再做复杂映射。
+    debugADC 分支只公开 AD4007 的 4 通道 x 6 slot 原始码。
     """
     timestamp_pc_ns: int
     relative_time_s: float
     frame_seq: int | None
     sample_seq: int | None
-    ppg_g: float
-    ppg_r: float
-    ppg_ir: float
-    acc_x: float
-    acc_y: float
-    acc_z: float
-    gyro_x: float
-    gyro_y: float
-    gyro_z: float
-    uh1: float
-    uh2: float
-    uh3: float
-    uh4: float
-    uc1: float
-    uc2: float
-    uc3: float
-    uc4: float
-    ud1: float
-    ud2: float
+    adc_ch1_slot0: int
+    adc_ch1_slot1: int
+    adc_ch1_slot2: int
+    adc_ch1_slot3: int
+    adc_ch1_slot4: int
+    adc_ch1_slot5: int
+    adc_ch2_slot0: int
+    adc_ch2_slot1: int
+    adc_ch2_slot2: int
+    adc_ch2_slot3: int
+    adc_ch2_slot4: int
+    adc_ch2_slot5: int
+    adc_ch3_slot0: int
+    adc_ch3_slot1: int
+    adc_ch3_slot2: int
+    adc_ch3_slot3: int
+    adc_ch3_slot4: int
+    adc_ch3_slot5: int
+    adc_ch4_slot0: int
+    adc_ch4_slot1: int
+    adc_ch4_slot2: int
+    adc_ch4_slot3: int
+    adc_ch4_slot4: int
+    adc_ch4_slot5: int
     absolute_seq_u64: int | None = None
     seq_gap: int = 0
     lost_before: int = 0

@@ -7,7 +7,7 @@ from pydisplay.services.pipeline import DataPipeline
 
 HEADER = b"\xAA\xBB"
 TAIL = b"\xCC"
-PAYLOAD_LENGTH = 45
+PAYLOAD_LENGTH = 93
 
 
 def build_frame(frame_seq: int, payload_byte: int = 1) -> bytes:

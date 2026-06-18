@@ -47,26 +47,19 @@ class PlotGroupConfig:
     subplot_groups: tuple[SubplotGroupConfig, ...] = ()
 
 
+SLOT_COLORS = ("#4C78A8", "#3F9C9A", "#75A66A", "#D08A3C", "#B65C5A", "#7A68A6")
+
+
 CURVES = [
-    CurveConfig("ppg_g", "PPG_G", "PPG", "raw", "#3E8F5C"),
-    CurveConfig("ppg_r", "PPG_R", "PPG", "raw", "#B94E4E"),
-    CurveConfig("ppg_ir", "PPG_IR", "PPG", "raw", "#7A68A6"),
-    CurveConfig("acc_x", "ACC_X", "ACC", "g", "#4F7FA8"),
-    CurveConfig("acc_y", "ACC_Y", "ACC", "g", "#75A66A"),
-    CurveConfig("acc_z", "ACC_Z", "ACC", "g", "#A77FB3"),
-    CurveConfig("gyro_x", "GYRO_X", "GYRO", "dps", "#5D6FA8"),
-    CurveConfig("gyro_y", "GYRO_Y", "GYRO", "dps", "#B56C82"),
-    CurveConfig("gyro_z", "GYRO_Z", "GYRO", "dps", "#8C9856"),
-    CurveConfig("uh1", "Uh1", "Uh", "V", "#9D6A66"),
-    CurveConfig("uh2", "Uh2", "Uh", "V", "#B65C5A"),
-    CurveConfig("uh3", "Uh3", "Uh", "V", "#C87A3A"),
-    CurveConfig("uh4", "Uh4", "Uh", "V", "#A07144"),
-    CurveConfig("uc1", "Uc1", "Uc", "V", "#5E83A6"),
-    CurveConfig("uc2", "Uc2", "Uc", "V", "#4C78A8"),
-    CurveConfig("uc3", "Uc3", "Uc", "V", "#3F9C9A"),
-    CurveConfig("uc4", "Uc4", "Uc", "V", "#5C9A8D"),
-    CurveConfig("ud1", "UD1", "UD", "ratio", "#BFA43A"),
-    CurveConfig("ud2", "UD2", "UD", "ratio", "#D08A3C"),
+    CurveConfig(
+        f"adc_ch{channel}_slot{slot}",
+        f"CH{channel} Slot{slot}",
+        f"ADC CH{channel}",
+        "raw",
+        SLOT_COLORS[slot],
+    )
+    for channel in range(1, 5)
+    for slot in range(6)
 ]
 
 CURVE_BY_KEY = {curve.key: curve for curve in CURVES}
@@ -74,68 +67,35 @@ CURVE_BY_KEY = {curve.key: curve for curve in CURVES}
 
 PLOT_GROUPS = (
     PlotGroupConfig(
-        key="ppg",
-        title="3色 PPG",
-        curves=("ppg_g", "ppg_r", "ppg_ir"),
-        subplots=("ppg_g", "ppg_r", "ppg_ir"),
+        key="adc_ch1",
+        title="ADC CH1 raw slots",
+        curves=tuple(f"adc_ch1_slot{slot}" for slot in range(6)),
+        subplots=(),
         unit="raw",
-        grid_position=(0, 0, 2, 1),
-        show_combined=False,
+        grid_position=(0, 0, 1, 1),
     ),
     PlotGroupConfig(
-        key="uh23",
-        title="2/3号 Uh",
-        curves=("uh2", "uh3"),
-        subplots=("uh2", "uh3"),
-        unit="V",
-        grid_position=(0, 1, 2, 1),
-        show_combined=False,
-    ),
-    PlotGroupConfig(
-        key="uc23",
-        title="2/3号 Uc",
-        curves=("uc2", "uc3"),
-        subplots=("uc2", "uc3"),
-        unit="V",
-        grid_position=(0, 2, 1, 1),
-        show_combined=False,
-    ),
-    PlotGroupConfig(
-        key="ud",
-        title="UD1 / UD2",
-        curves=("ud1", "ud2"),
-        subplots=("ud1", "ud2"),
-        unit="ratio",
-        grid_position=(1, 2, 1, 1),
-        show_combined=False,
-    ),
-    PlotGroupConfig(
-        key="acc",
-        title="3轴 ACC",
-        curves=("acc_x", "acc_y", "acc_z"),
+        key="adc_ch2",
+        title="ADC CH2 raw slots",
+        curves=tuple(f"adc_ch2_slot{slot}" for slot in range(6)),
         subplots=(),
-        unit="g",
-        grid_position=(2, 0, 1, 1),
+        unit="raw",
+        grid_position=(0, 1, 1, 1),
     ),
     PlotGroupConfig(
-        key="gyro",
-        title="3轴 GYRO",
-        curves=("gyro_x", "gyro_y", "gyro_z"),
+        key="adc_ch3",
+        title="ADC CH3 raw slots",
+        curves=tuple(f"adc_ch3_slot{slot}" for slot in range(6)),
         subplots=(),
-        unit="dps",
-        grid_position=(2, 1, 1, 1),
+        unit="raw",
+        grid_position=(1, 0, 1, 1),
     ),
     PlotGroupConfig(
-        key="sensor14",
-        title="1/4号 Uh / Uc",
-        curves=("uh1", "uc1", "uh4", "uc4"),
+        key="adc_ch4",
+        title="ADC CH4 raw slots",
+        curves=tuple(f"adc_ch4_slot{slot}" for slot in range(6)),
         subplots=(),
-        unit="V",
-        grid_position=(2, 2, 1, 1),
-        show_combined=False,
-        subplot_groups=(
-            SubplotGroupConfig("1号传感器 Uh/Uc", ("uh1", "uc1"), "V"),
-            SubplotGroupConfig("4号传感器 Uh/Uc", ("uh4", "uc4"), "V"),
-        ),
+        unit="raw",
+        grid_position=(1, 1, 1, 1),
     ),
 )

@@ -1,6 +1,6 @@
 # Pydisplay
 
-Pydisplay is a Python upper-computer GUI for the STM32G474 PulseTIMR2 firmware on branch `Single`. It receives HJ131 data through an HJ380 BLE serial port, parses the confirmed 51-byte firmware frame, decodes PPG/IMU/Uh/Uc/UD values, plots them with PySide6 + PyQtGraph, records data, and replays saved sessions without hardware.
+Pydisplay is a Python upper-computer GUI for the STM32G474 PulseTIMR2 firmware on branch `debugADC`. It receives HJ131 data through an HJ380 BLE serial port, parses the confirmed 99-byte debugADC firmware frame, decodes 4 channels x 6 AD4007 raw slot codes, plots them with PySide6 + PyQtGraph, records data, and replays saved sessions without hardware.
 
 ## Environment
 
@@ -8,8 +8,8 @@ Pydisplay is a Python upper-computer GUI for the STM32G474 PulseTIMR2 firmware o
 - GUI stack: PySide6 + PyQtGraph
 - Serial stack: pyserial
 - Test stack: pytest
-- Firmware repo: `https://github.com/Scp-918/PulseTIMR2/tree/Single`
-- Firmware commit analyzed: `3714333572dc985c407dbb680183785cc0b92b66`
+- Firmware repo: `https://github.com/Scp-918/PulseTIMR2/tree/debugADC`
+- Firmware commit analyzed: local debugADC branch
 
 Dependencies are expected to already be installed in `Pydisplay_env`.
 
@@ -58,17 +58,16 @@ The realtime plot header keeps `暂停绘图`, `清空图表`, and an editable `
 
 Startup defaults are aligned with the firmware initial state where possible: `k = 24`, realtime x-axis length is `5 s`, PPG mode is `MultiLED`, Multi sub-mode is `G-R-IR`, LED levels are Green `5`, Red `1`, IR `1`, PPG range is `3`, pulse width is `3`, gyro range is `500 dps`, and accel range is `2 g`.
 
-The plot area uses a 3x3 layout:
+The plot area uses a 2x2 debugADC layout:
 
 ```text
-a, b, c
-a, b, d
-f, g, e
+ADC CH1, ADC CH2
+ADC CH3, ADC CH4
 ```
 
-`a` is 3-color PPG, `b` is Uh channel 2/3, `c` is Uc channel 2/3, `d` is UD1/UD2, `e` is Uh/Uc channel 1/4, `f` is ACC, and `g` is GYRO. Areas `a` to `d` show per-channel subplots only, with shared x-axes inside each area. Area `e` now has one subplot for sensor 1 Uh/Uc and one subplot for sensor 4 Uh/Uc. Areas `f` and `g` use compact multi-curve plots. Plot titles do not include the grid letters.
+Each ADC channel plot contains `slot0..slot5` as six curves. Slot `0..2` are the early-window CNV results and slot `3..5` are the late-window CNV results, in firmware trigger order. The debug UI intentionally does not plot PPG, IMU, Uh/Uc, or UD values.
 
-Curve colors use muted, signal-oriented colors: PPG uses green/red/purple, Uh2/Uh3 uses red/orange, Uc2/Uc3 uses blue/cyan, and UD1/UD2 uses yellow/orange.
+Curve colors are shared by slot index across all channels so slot-to-slot comparisons stay visually consistent.
 
 ## Control Commands
 
@@ -83,7 +82,7 @@ The control panel builds the confirmed 13-byte firmware control frame through `p
 
 The firmware design is no ACK/NACK for this control frame.
 
-The GUI control defaults follow the firmware `g_sensor_param_array` in `Core/Src/main.c` on branch `Single`: `01 01 05 01 01 03 03 02 01` for mode/submode/LED/range/pulse/gyro/accel. The initial decoder uses the same gyro and accel range codes, so plotted IMU values match the default firmware scale before any command is sent.
+The GUI control defaults follow the firmware `g_sensor_param_array` in `Core/Src/main.c`: `01 01 05 01 01 03 03 02 01` for mode/submode/LED/range/pulse/gyro/accel. The debugADC decoder ignores these scale settings because it plots raw AD4007 slot codes.
 
 The realtime plot x-axis uses the first decoded firmware frame as time zero. This avoids the earlier symptom where every decoded sample had `relative_time_s = 0` and PyQtGraph showed each curve as a vertical line.
 

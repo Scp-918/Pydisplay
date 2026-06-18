@@ -32,17 +32,22 @@ Replay completion is based on the number of records read from the file. The form
 Fields:
 
 ```text
-frame_seq,absolute_seq_u64,segment_id,sample_seq,PPG_G,PPG_R,PPG_IR,ACC_X,ACC_Y,ACC_Z,GYRO_X,GYRO_Y,GYRO_Z,Uh1,Uh2,Uh3,Uh4,Uc1,Uc2,Uc3,Uc4,UD1,UD2,parser_valid
+frame_seq,absolute_seq_u64,segment_id,sample_seq,
+adc_ch1_slot0..adc_ch1_slot5,
+adc_ch2_slot0..adc_ch2_slot5,
+adc_ch3_slot0..adc_ch3_slot5,
+adc_ch4_slot0..adc_ch4_slot5,
+parser_valid
 ```
 
-CSV uses UTF-8 and standard comma-separated rows. PPG values are firmware raw counts. ACC is in g, GYRO is in dps, and Uh/Uc are in volts using `volts = signed_int24 * (4.096 / 131072.0)`.
+CSV uses UTF-8 and standard comma-separated rows. ADC slot values are signed AD4007 raw codes decoded by firmware and transmitted as int24 little-endian values. The debug UI and CSV do not convert these values to voltage.
 
-`frame_seq` is the firmware uint16 source frame sequence from bytes 48..49 of the 51-byte data frame. `absolute_seq_u64` is the monotonic source sequence used for post-processing interpolation; the first sequenced frame is 0. `segment_id` increments when the sequence delta indicates reset, severe reorder, or device restart.
+`frame_seq` is the firmware uint16 source frame sequence from bytes 96..97 of the 99-byte data frame. `absolute_seq_u64` is the monotonic source sequence used for post-processing interpolation; the first sequenced frame is 0. `segment_id` increments when the sequence delta indicates reset, severe reorder, or device restart.
 
 `decoded.csv` intentionally does not record `relative_time_s`, `timestamp_pc_ns`, `seq_gap`, `lost_before`, or `source`. Timing for decoded CSV replay is synthesized from row order at 100 Hz. Raw-bin replay should be used when the original capture rhythm is important. Loss and duplicate diagnostics remain visible in the health panel during live/raw replay and can be recomputed from `frame_seq`/`absolute_seq_u64` during post-processing.
 
-Protocol upgrade note: raw replay now expects new 51-byte firmware frames when replaying `valid_raw_frame` data through the parser. Older raw captures containing only legacy 49-byte frames are not guaranteed to parse after this protocol upgrade.
+Protocol upgrade note: raw replay now expects new 99-byte debugADC firmware frames when replaying `valid_raw_frame` data through the parser. Older raw captures containing legacy 49-byte or 51-byte frames are not guaranteed to parse after this protocol upgrade.
 
 ## metadata.json
 
-`metadata.json` records software version, firmware repo/branch/commit, serial settings, Bluetooth modules, `k`, UD formula, control parameters, protocol layout, CSV field descriptions, and raw bin format version.
+`metadata.json` records software version, firmware repo/branch/commit, serial settings, Bluetooth modules, debugADC decode mode, control parameters, protocol layout, CSV field descriptions, and raw bin format version.

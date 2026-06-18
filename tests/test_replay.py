@@ -14,7 +14,7 @@ from pydisplay.protocol.models import DecodedSample
 
 HEADER = b"\xAA\xBB"
 TAIL = b"\xCC"
-PAYLOAD_LENGTH = 45
+PAYLOAD_LENGTH = 93
 FRAME_INTERVAL_NS = 10_000_000
 
 
@@ -27,6 +27,7 @@ def build_frame(frame_seq: int, payload_byte: int = 1) -> bytes:
 
 
 def sample(index: int, t: float = 0.0) -> DecodedSample:
+    adc_fields = {f"adc_ch{channel}_slot{slot}": index * 100 + channel * 10 + slot for channel in range(1, 5) for slot in range(6)}
     return DecodedSample(
         timestamp_pc_ns=index,
         relative_time_s=t,
@@ -36,25 +37,7 @@ def sample(index: int, t: float = 0.0) -> DecodedSample:
         seq_gap=1 if index else 0,
         lost_before=0,
         segment_id=0,
-        ppg_g=1,
-        ppg_r=2,
-        ppg_ir=3,
-        acc_x=0,
-        acc_y=0,
-        acc_z=1,
-        gyro_x=0,
-        gyro_y=0,
-        gyro_z=0,
-        uh1=1,
-        uh2=2,
-        uh3=3,
-        uh4=4,
-        uc1=0.5,
-        uc2=1,
-        uc3=1.5,
-        uc4=2,
-        ud1=0.25,
-        ud2=0.4,
+        **adc_fields,
     )
 
 

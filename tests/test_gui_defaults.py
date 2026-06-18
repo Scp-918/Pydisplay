@@ -51,31 +51,14 @@ def test_plot_panel_defaults_to_five_second_window(qtbot) -> None:
 def test_plot_panel_clear_button_empties_current_plot_buffer(qtbot) -> None:
     panel = PlotPanel()
     qtbot.addWidget(panel)
+    adc_fields = {f"adc_ch{channel}_slot{slot}": channel * 100 + slot for channel in range(1, 5) for slot in range(6)}
     panel.add_sample(
         DecodedSample(
             timestamp_pc_ns=1,
             relative_time_s=0.0,
             frame_seq=1,
             sample_seq=1,
-            ppg_g=1,
-            ppg_r=2,
-            ppg_ir=3,
-            acc_x=0,
-            acc_y=0,
-            acc_z=1,
-            gyro_x=0,
-            gyro_y=0,
-            gyro_z=0,
-            uh1=1,
-            uh2=2,
-            uh3=3,
-            uh4=4,
-            uc1=0.5,
-            uc2=1,
-            uc3=1.5,
-            uc4=2,
-            ud1=0.25,
-            ud2=0.4,
+            **adc_fields,
         )
     )
 

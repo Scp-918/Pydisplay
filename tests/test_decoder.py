@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import math
-
 import pytest
 
 from pydisplay.protocol.decoder import decode_frame
@@ -10,7 +8,8 @@ from pydisplay.protocol.models import DecodeConfig, ParsedFrame
 
 HEADER = b"\xAA\xBB"
 TAIL = b"\xCC"
-PAYLOAD_LENGTH = 45
+PAYLOAD_LENGTH = 93
+ADC_SLOT_VALUES = tuple(range(1, 25))
 
 
 def u24(value: int) -> bytes:
@@ -27,19 +26,10 @@ def s16(value: int) -> bytes:
     return value.to_bytes(2, "little", signed=True)
 
 
-def build_payload(
-    *,
-    uc1: int = 0,
-    uh1: int = 131_072,
-    uc2: int = 32_000,
-    uh2: int = 64_000,
-    uc3: int = 48_000,
-    uh3: int = 96_000,
-    uc4: int = -32_000,
-    uh4: int = 0,
-) -> bytes:
+def build_payload(adc_values: tuple[int, ...] = ADC_SLOT_VALUES) -> bytes:
+    assert len(adc_values) == 24
     payload = bytearray()
-    for value in (uc1, uh1, uc2, uh2, uc3, uh3, uc4, uh4):
+    for value in adc_values:
         payload += s24(value)
     payload += u24(1000)
     payload += u24(2000)
@@ -69,7 +59,7 @@ def build_parsed_frame(payload: bytes, timestamp_ns: int = 1_000_000_000, frame_
     )
 
 
-def test_decoder_outputs_ppg_imu_voltage_and_ud_values() -> None:
+def test_decoder_outputs_24_signed_adc_slot_raw_codes() -> None:
     frame = build_parsed_frame(build_payload(), timestamp_ns=1_500_000_000)
     config = DecodeConfig(k=5.0, start_time_ns=1_000_000_000, gyro_range_code=0x02, accel_range_code=0x01)
 
@@ -79,31 +69,23 @@ def test_decoder_outputs_ppg_imu_voltage_and_ud_values() -> None:
     assert sample.relative_time_s == pytest.approx(0.5)
     assert sample.frame_seq == 0x0201
     assert sample.sample_seq == 7
-    assert sample.ppg_g == 1000
-    assert sample.ppg_r == 2000
-    assert sample.ppg_ir == 3000
-    assert sample.gyro_x == pytest.approx(1.75)
-    assert sample.gyro_y == pytest.approx(-1.75)
-    assert sample.gyro_z == pytest.approx(0.0)
-    assert sample.acc_x == pytest.approx(0.061)
-    assert sample.acc_y == pytest.approx(-0.061)
-    assert sample.acc_z == pytest.approx(0.0)
-    assert sample.uc1 == pytest.approx(0.0)
-    assert sample.uh1 == pytest.approx(4.096)
-    assert sample.uc2 == pytest.approx(1.0)
-    assert sample.uh2 == pytest.approx(2.0)
-    assert sample.ud1 == pytest.approx(0.25)
-    assert sample.ud2 == pytest.approx((3.0 - 1.5) / (5.0 - 1.5))
+    assert sample.adc_ch1_slot0 == 1
+    assert sample.adc_ch1_slot5 == 6
+    assert sample.adc_ch2_slot0 == 7
+    assert sample.adc_ch3_slot5 == 18
+    assert sample.adc_ch4_slot5 == 24
     assert sample.parser_valid is True
     assert sample.source == "firmware"
+    assert not hasattr(sample, "ppg_g")
+    assert not hasattr(sample, "ud1")
 
 
-def test_decoder_returns_nan_when_ud_denominator_is_near_zero() -> None:
-    frame = build_parsed_frame(build_payload())
-    sample = decode_frame(frame, DecodeConfig(k=1.0))
+def test_decoder_preserves_signed_int24_slot_values() -> None:
+    adc_values = (-1, -2, -3, -4, -5, -6) + tuple(range(7, 25))
+    sample = decode_frame(build_parsed_frame(build_payload(adc_values)), DecodeConfig(k=5.0))
 
-    assert math.isnan(sample.ud1)
-    assert any("UD1" in warning for warning in sample.warnings)
+    assert sample.adc_ch1_slot0 == -1
+    assert sample.adc_ch1_slot5 == -6
 
 
 def test_decoder_initializes_timebase_once_when_start_time_is_missing() -> None:

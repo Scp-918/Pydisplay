@@ -10,6 +10,7 @@ import csv
 import math
 from pathlib import Path
 
+from pydisplay.protocol.constants import ADC_SLOT_FIELD_NAMES
 from pydisplay.protocol.models import DecodedSample
 from pydisplay.recorder.csv_writer import CSV_FIELDS
 
@@ -40,6 +41,7 @@ def _row_to_sample(row: dict[str, str], index: int) -> DecodedSample:
         timestamp_pc_ns = _optional_int(row.get("timestamp_pc_ns", ""))
         if timestamp_pc_ns is None:
             timestamp_pc_ns = int(relative_time_s * 1_000_000_000)
+        adc_fields = {field: _int(row[field]) for field in ADC_SLOT_FIELD_NAMES}
         return DecodedSample(
             relative_time_s=relative_time_s,
             timestamp_pc_ns=timestamp_pc_ns,
@@ -49,25 +51,7 @@ def _row_to_sample(row: dict[str, str], index: int) -> DecodedSample:
             lost_before=_int(row.get("lost_before", "")),
             segment_id=_int(row["segment_id"]),
             sample_seq=_optional_int(row["sample_seq"]),
-            ppg_g=_float(row["PPG_G"]),
-            ppg_r=_float(row["PPG_R"]),
-            ppg_ir=_float(row["PPG_IR"]),
-            acc_x=_float(row["ACC_X"]),
-            acc_y=_float(row["ACC_Y"]),
-            acc_z=_float(row["ACC_Z"]),
-            gyro_x=_float(row["GYRO_X"]),
-            gyro_y=_float(row["GYRO_Y"]),
-            gyro_z=_float(row["GYRO_Z"]),
-            uh1=_float(row["Uh1"]),
-            uh2=_float(row["Uh2"]),
-            uh3=_float(row["Uh3"]),
-            uh4=_float(row["Uh4"]),
-            uc1=_float(row["Uc1"]),
-            uc2=_float(row["Uc2"]),
-            uc3=_float(row["Uc3"]),
-            uc4=_float(row["Uc4"]),
-            ud1=_float(row["UD1"]),
-            ud2=_float(row["UD2"]),
+            **adc_fields,
             parser_valid=_bool(row["parser_valid"]),
             source=row.get("source") or "decoded_csv",
         )
