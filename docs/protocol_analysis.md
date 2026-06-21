@@ -57,7 +57,7 @@ Payload fields:
 
 | Offset | Field | Bytes | Type | Signed | Endian | Scale / decode | Source |
 |---:|---|---:|---|---|---|---|---|
-| 2..73 | adc_ch1_slot0..adc_ch4_slot5 | 72 | 24 x int24 stored from `int32_t` low 24 bits | signed raw code | little | AD4007 raw slot code, not converted to volts in debug UI | `Core/Src/main.c`, `Core/Src/ble_comm.c` |
+| 2..73 | adc_ch1_slot0..adc_ch4_slot5 | 72 | 24 x int24 stored from `int32_t` low 24 bits | signed raw code | little | CSV retains raw codes; plots use `volts = raw * 4.096 / 131072` | `Core/Src/main.c`, `Core/Src/ble_comm.c` |
 | 74 | PPG_G | 3 | uint24 | unsigned | little | Retained in raw frame, not decoded for debug UI | `Core/Src/ble_comm.c`, `Core/Src/MAX30101.c` |
 | 77 | PPG_R | 3 | uint24 | unsigned | little | Retained in raw frame, not decoded for debug UI | same as above |
 | 80 | PPG_IR | 3 | uint24 | unsigned | little | Retained in raw frame, not decoded for debug UI | same as above |

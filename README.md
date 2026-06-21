@@ -58,14 +58,16 @@ The realtime plot header keeps `暂停绘图`, `清空图表`, and an editable `
 
 Startup defaults are aligned with the firmware initial state where possible: `k = 24`, realtime x-axis length is `5 s`, PPG mode is `MultiLED`, Multi sub-mode is `G-R-IR`, LED levels are Green `5`, Red `1`, IR `1`, PPG range is `3`, pulse width is `3`, gyro range is `500 dps`, and accel range is `2 g`.
 
-The plot area uses a 2x2 debugADC layout:
+The plot area uses an 8x3 debugADC layout with 24 single-curve plots:
 
 ```text
-ADC CH1, ADC CH2
-ADC CH3, ADC CH4
+CH1 early sample 1, sample 2, sample 3
+CH1 late  sample 1, sample 2, sample 3
+...
+CH4 late  sample 1, sample 2, sample 3
 ```
 
-Each ADC channel plot contains `slot0..slot5` as six curves. Slot `0..2` are the early-window CNV results and slot `3..5` are the late-window CNV results, in firmware trigger order. The debug UI intentionally does not plot PPG, IMU, Uh/Uc, or UD values.
+Each plot contains one ADC slot. Slot `0..2` are the early-window CNV results and slot `3..5` are the late-window CNV results, in firmware trigger order. Plot y-values use `volts = raw_code * (4.096 / 131072.0)` and the y-axis unit is volts. The debug UI intentionally does not plot PPG, IMU, Uh/Uc, or UD values.
 
 Curve colors are shared by slot index across all channels so slot-to-slot comparisons stay visually consistent.
 
@@ -82,7 +84,7 @@ The control panel builds the confirmed 13-byte firmware control frame through `p
 
 The firmware design is no ACK/NACK for this control frame.
 
-The GUI control defaults follow the firmware `g_sensor_param_array` in `Core/Src/main.c`: `01 01 05 01 01 03 03 02 01` for mode/submode/LED/range/pulse/gyro/accel. The debugADC decoder ignores these scale settings because it plots raw AD4007 slot codes.
+The GUI control defaults follow the firmware `g_sensor_param_array` in `Core/Src/main.c`: `01 01 05 01 01 03 03 02 01` for mode/submode/LED/range/pulse/gyro/accel. These sensor-control ranges do not affect the AD4007 voltage conversion used by the debug plots.
 
 The realtime plot x-axis uses the first decoded firmware frame as time zero. This avoids the earlier symptom where every decoded sample had `relative_time_s = 0` and PyQtGraph showed each curve as a vertical line.
 

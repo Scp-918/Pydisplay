@@ -40,7 +40,7 @@ adc_ch4_slot0..adc_ch4_slot5,
 parser_valid
 ```
 
-CSV uses UTF-8 and standard comma-separated rows. ADC slot values are signed AD4007 raw codes decoded by firmware and transmitted as int24 little-endian values. The debug UI and CSV do not convert these values to voltage.
+CSV uses UTF-8 and standard comma-separated rows. ADC slot values are signed AD4007 raw codes decoded by firmware and transmitted as int24 little-endian values. CSV retains those raw codes; the debug plots convert them with `volts = raw_code * (4.096 / 131072.0)`.
 
 `frame_seq` is the firmware uint16 source frame sequence from bytes 96..97 of the 99-byte data frame. `absolute_seq_u64` is the monotonic source sequence used for post-processing interpolation; the first sequenced frame is 0. `segment_id` increments when the sequence delta indicates reset, severe reorder, or device restart.
 

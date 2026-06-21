@@ -1,26 +1,45 @@
 from __future__ import annotations
 
 from pydisplay.gui.plots.curve_config import CURVES, PLOT_GROUPS
+from pydisplay.gui.plots.plot_manager import MAIN_PLOT_MIN_HEIGHT
+from pydisplay.protocol.constants import ADC_VOLTS_PER_COUNT
 
 
 def test_plot_groups_match_requested_grid_positions() -> None:
     groups = {group.key: group for group in PLOT_GROUPS}
 
-    assert groups["adc_ch1"].grid_position == (0, 0, 1, 1)
-    assert groups["adc_ch2"].grid_position == (0, 1, 1, 1)
-    assert groups["adc_ch3"].grid_position == (1, 0, 1, 1)
-    assert groups["adc_ch4"].grid_position == (1, 1, 1, 1)
+    for channel in range(1, 5):
+        for window_index, slots in enumerate((range(3), range(3, 6))):
+            row = ((channel - 1) * 2) + window_index
+            for sample_index, slot in enumerate(slots):
+                assert groups[f"adc_ch{channel}_slot{slot}"].grid_position == (row, sample_index, 1, 1)
 
 
 def test_plot_groups_have_expected_curves_and_subplots() -> None:
     groups = {group.key: group for group in PLOT_GROUPS}
 
     for channel in range(1, 5):
-        key = f"adc_ch{channel}"
-        expected = tuple(f"adc_ch{channel}_slot{slot}" for slot in range(6))
-        assert groups[key].curves == expected
-        assert groups[key].subplots == ()
-        assert groups[key].show_combined is True
+        for slot in range(6):
+            key = f"adc_ch{channel}_slot{slot}"
+            assert groups[key].curves == (key,)
+            assert groups[key].subplots == ()
+            assert groups[key].show_combined is True
+
+
+def test_plot_groups_are_24_single_curve_panels() -> None:
+    assert len(PLOT_GROUPS) == 24
+    assert all(len(group.curves) == 1 for group in PLOT_GROUPS)
+    assert all(group.unit == "V" for group in PLOT_GROUPS)
+
+
+def test_adc_plot_curves_use_original_voltage_scale() -> None:
+    assert ADC_VOLTS_PER_COUNT == 4.096 / 131_072.0
+    assert all(curve.unit == "V" for curve in CURVES)
+    assert all(curve.scale == ADC_VOLTS_PER_COUNT for curve in CURVES)
+
+
+def test_main_plot_minimum_height_is_enlarged() -> None:
+    assert MAIN_PLOT_MIN_HEIGHT >= 260
 
 
 def test_all_plot_group_curve_keys_are_known() -> None:

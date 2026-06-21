@@ -29,6 +29,7 @@ PROTOCOL_VERSION = None
 
 ADC_VREF = 4.096
 ADC_FULL_SCALE_COUNTS = 131_072.0
+ADC_VOLTS_PER_COUNT = ADC_VREF / ADC_FULL_SCALE_COUNTS
 
 ADC_SLOT_OFFSETS = {
     f"adc_ch{channel}_slot{slot}": PAYLOAD_START_OFFSET + (((channel - 1) * 6 + slot) * 3)

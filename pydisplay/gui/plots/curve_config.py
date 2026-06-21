@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from pydisplay.protocol.constants import ADC_VOLTS_PER_COUNT
+
 
 @dataclass(frozen=True, slots=True)
 class CurveConfig:
@@ -16,6 +18,7 @@ class CurveConfig:
     group: str
     unit: str
     color: str
+    scale: float = 1.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,8 +58,9 @@ CURVES = [
         f"adc_ch{channel}_slot{slot}",
         f"CH{channel} Slot{slot}",
         f"ADC CH{channel}",
-        "raw",
+        "V",
         SLOT_COLORS[slot],
+        ADC_VOLTS_PER_COUNT,
     )
     for channel in range(1, 5)
     for slot in range(6)
@@ -65,37 +69,16 @@ CURVES = [
 CURVE_BY_KEY = {curve.key: curve for curve in CURVES}
 
 
-PLOT_GROUPS = (
+PLOT_GROUPS = tuple(
     PlotGroupConfig(
-        key="adc_ch1",
-        title="ADC CH1 raw slots",
-        curves=tuple(f"adc_ch1_slot{slot}" for slot in range(6)),
+        key=f"adc_ch{channel}_slot{slot}",
+        title=f"ADC CH{channel} {window_name} sample {sample_index + 1} (slot{slot})",
+        curves=(f"adc_ch{channel}_slot{slot}",),
         subplots=(),
-        unit="raw",
-        grid_position=(0, 0, 1, 1),
-    ),
-    PlotGroupConfig(
-        key="adc_ch2",
-        title="ADC CH2 raw slots",
-        curves=tuple(f"adc_ch2_slot{slot}" for slot in range(6)),
-        subplots=(),
-        unit="raw",
-        grid_position=(0, 1, 1, 1),
-    ),
-    PlotGroupConfig(
-        key="adc_ch3",
-        title="ADC CH3 raw slots",
-        curves=tuple(f"adc_ch3_slot{slot}" for slot in range(6)),
-        subplots=(),
-        unit="raw",
-        grid_position=(1, 0, 1, 1),
-    ),
-    PlotGroupConfig(
-        key="adc_ch4",
-        title="ADC CH4 raw slots",
-        curves=tuple(f"adc_ch4_slot{slot}" for slot in range(6)),
-        subplots=(),
-        unit="raw",
-        grid_position=(1, 1, 1, 1),
-    ),
+        unit="V",
+        grid_position=(((channel - 1) * 2) + window_index, sample_index, 1, 1),
+    )
+    for channel in range(1, 5)
+    for window_index, (window_name, slots) in enumerate((("early", range(3)), ("late", range(3, 6))))
+    for sample_index, slot in enumerate(slots)
 )

@@ -12,6 +12,10 @@ from .curve_config import CURVE_BY_KEY, CURVES, PLOT_GROUPS, PlotGroupConfig
 from .ring_buffer import SampleRingBuffer
 
 
+MAIN_PLOT_MIN_HEIGHT = 280
+SUBPLOT_MIN_HEIGHT = 118
+
+
 class PlotManager:
     """持有所有曲线对象，并集中刷新。"""
 
@@ -23,10 +27,12 @@ class PlotManager:
         self.curves: dict[str, list[object]] = {curve.key: [] for curve in CURVES}
         self.plot_widgets = {}
 
-        layout.setSpacing(8)
-        for column in range(3):
+        layout.setSpacing(10)
+        max_column = max((group.grid_position[1] + group.grid_position[3] for group in PLOT_GROUPS), default=0)
+        max_row = max((group.grid_position[0] + group.grid_position[2] for group in PLOT_GROUPS), default=0)
+        for column in range(max_column):
             layout.setColumnStretch(column, 1)
-        for row in range(3):
+        for row in range(max_row):
             layout.setRowStretch(row, 1)
 
         for group in PLOT_GROUPS:
@@ -50,6 +56,9 @@ class PlotManager:
             if not self.visible.get(key, True):
                 continue
             x, y = buffer.get_series(key, self.window_seconds)
+            scale = CURVE_BY_KEY[key].scale
+            if scale != 1.0:
+                y = [value * scale for value in y]
             for item in items:
                 item.setData(x, y)
 
@@ -74,7 +83,7 @@ class PlotManager:
 
         link_root = None
         if group.show_combined:
-            main_plot = self._make_plot(pg, group.title, group.unit, minimum_height=170)
+            main_plot = self._make_plot(pg, group.title, group.unit, minimum_height=MAIN_PLOT_MIN_HEIGHT)
             if len(group.curves) > 1:
                 main_plot.addLegend(offset=(5, 5))
             container_layout.addWidget(main_plot)
@@ -111,7 +120,7 @@ class PlotManager:
         return container
 
     def _add_subplot(self, pg, layout, *, group_key: str, plot_key: str, title: str, unit: str, curve_keys: tuple[str, ...], link_root):
-        subplot = self._make_plot(pg, title, unit, minimum_height=118)
+        subplot = self._make_plot(pg, title, unit, minimum_height=SUBPLOT_MIN_HEIGHT)
         if len(curve_keys) > 1:
             subplot.addLegend(offset=(5, 5))
         if link_root is None:
