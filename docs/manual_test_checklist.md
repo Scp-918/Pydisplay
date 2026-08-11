@@ -12,7 +12,7 @@
 - [ ] Left column order is serial, control, recording, health, replay.
 - [ ] Replay panel can be reached by scrolling down below health.
 - [ ] k value defaults to `24`.
-- [ ] Control defaults are MultiLED / G-R-IR / LED `5,1,1` / PPG range `3` / pulse `3` / gyro `500 dps` / accel `2 g`.
+- [ ] Control defaults are MultiLED / G-R-IR / LED `9,4,4` / PPG range `4` / pulse `3` / gyro `500 dps` / accel `2 g`.
 
 ## 2. Serial
 

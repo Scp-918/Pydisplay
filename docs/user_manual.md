@@ -32,7 +32,7 @@ Color choices are muted and signal-oriented: PPG is green/red/purple, Uh2/Uh3 is
 
 ## Control Defaults
 
-The control panel starts with the firmware default parameter array from `Core/Src/main.c` on branch `Single`: k is `24`, PPG mode is `MultiLED`, Multi sub-mode is `G-R-IR`, Green/Red/IR LED levels are `5/1/1`, PPG range is `3`, pulse width is `3`, gyro range is `500 dps`, and accel range is `2 g`. The initial decoder uses the same gyro/accel range codes.
+The control panel starts with the firmware default parameter array from `Core/Src/main.c` on branch `1.2ms9444`: k is `24`, PPG mode is `MultiLED`, Multi sub-mode is `G-R-IR`, Green/Red/IR LED levels are `9/4/4`, PPG range is `4`, pulse width is `3`, gyro range is `500 dps`, and accel range is `2 g`. The initial decoder uses the same gyro/accel range codes.
 
 ## Recording Workflow
 

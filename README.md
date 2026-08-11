@@ -1,6 +1,6 @@
 # Pydisplay
 
-Pydisplay is a Python upper-computer GUI for the STM32G474 PulseTIMR2 firmware on branch `Single`. It receives HJ131 data through an HJ380 BLE serial port, parses the confirmed 51-byte firmware frame, decodes PPG/IMU/Uh/Uc/UD values, plots them with PySide6 + PyQtGraph, records data, and replays saved sessions without hardware.
+Pydisplay is a Python upper-computer GUI for the STM32G474 PulseTIMR2 firmware on branch `1.2ms9444`. It receives HJ131 data through an HJ380 BLE serial port, parses the confirmed 51-byte firmware frame, decodes PPG/IMU/Uh/Uc/UD values, plots them with PySide6 + PyQtGraph, records data, and replays saved sessions without hardware.
 
 ## Environment
 
@@ -56,7 +56,7 @@ The replay panel sits below the health panel in the scrollable left column. In n
 
 The realtime plot header keeps `暂停绘图`, `清空图表`, and an editable `X轴长度` value. `清空图表` clears the current on-screen plot buffer only; it does not stop serial receiving or recording. Curve visibility checkboxes are placed further down at the bottom of the plot scroll area, so routine viewing gives more space to plots.
 
-Startup defaults are aligned with the firmware initial state where possible: `k = 24`, realtime x-axis length is `5 s`, PPG mode is `MultiLED`, Multi sub-mode is `G-R-IR`, LED levels are Green `5`, Red `1`, IR `1`, PPG range is `3`, pulse width is `3`, gyro range is `500 dps`, and accel range is `2 g`.
+Startup defaults are aligned with the firmware initial state where possible: `k = 24`, realtime x-axis length is `5 s`, PPG mode is `MultiLED`, Multi sub-mode is `G-R-IR`, LED levels are Green `9`, Red `4`, IR `4`, PPG range is `4`, pulse width is `3`, gyro range is `500 dps`, and accel range is `2 g`.
 
 The plot area uses a 3x3 layout:
 
@@ -83,7 +83,7 @@ The control panel builds the confirmed 13-byte firmware control frame through `p
 
 The firmware design is no ACK/NACK for this control frame.
 
-The GUI control defaults follow the firmware `g_sensor_param_array` in `Core/Src/main.c` on branch `Single`: `01 01 05 01 01 03 03 02 01` for mode/submode/LED/range/pulse/gyro/accel. The initial decoder uses the same gyro and accel range codes, so plotted IMU values match the default firmware scale before any command is sent.
+The GUI control defaults follow the firmware `g_sensor_param_array` in `Core/Src/main.c` on branch `1.2ms9444`: `01 01 09 04 04 04 03 02 01` for mode/submode/LED/range/pulse/gyro/accel. The initial decoder uses the same gyro and accel range codes, so plotted IMU values match the default firmware scale before any command is sent.
 
 The realtime plot x-axis uses the first decoded firmware frame as time zero. This avoids the earlier symptom where every decoded sample had `relative_time_s = 0` and PyQtGraph showed each curve as a vertical line.
 
